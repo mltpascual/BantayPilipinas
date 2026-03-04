@@ -1,11 +1,12 @@
-// Design: "Ops Center Noir" — Mapbox GL JS map with NOAH hazard layers
-// Flood (100yr), Landslide (LH1/LH2), Storm Surge (SSA4) from UPRI-NOAH tilesets
+// PH Mission Control — Map Panel (MapLibre GL JS)
+// Uses free CARTO dark basemap tiles — no API token required
 // Earthquake markers from USGS, Typhoon tracker from GDACS, Water level stations from PAGASA
+// NOAH critical facilities (Hospitals, Schools) from S3 GeoJSON
 // Toggle controls for each layer type
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import {
   EarthquakeFeature,
   TyphoonData,
@@ -19,43 +20,8 @@ import {
   getWaterLevelColor,
 } from "@/lib/feeds";
 
-// NOAH public token from their live production site (noah.up.edu.ph)
-mapboxgl.accessToken =
-  "pk.eyJ1IjoidXByaS1ub2FoIiwiYSI6ImNsZTZyMGdjYzAybGMzbmwxMHA4MnE0enMifQ.tuOhBGsN-M7JCPaUqZ0Hng";
-
-// NOAH hazard tileset configuration
-const NOAH_TILESETS = {
-  flood: {
-    url: "mapbox://upri-noah.ph_fh_100yr_tls",
-    sourceLayers: Array.from({ length: 18 }, (_, i) =>
-      `PH${String(i + 1).padStart(2, "0")}0000000_FH_100yr`
-    ),
-    variable: "Var",
-    colors: { 1: "#F2C94C", 2: "#F2994A", 3: "#EB5757" },
-  },
-  landslide: {
-    url: "mapbox://upri-noah.ph_lh_lh1_tls",
-    sourceLayers: Array.from({ length: 18 }, (_, i) =>
-      `PH${String(i + 1).padStart(2, "0")}0000000_LH_lh1`
-    ),
-    variable: "LH",
-    colors: { 1: "#F2C94C", 2: "#F2994A", 3: "#EB5757" },
-  },
-  stormSurge: {
-    url: "mapbox://upri-noah.ph_ssh_ssa4_tls",
-    sourceLayers: [
-      ...Array.from({ length: 14 }, (_, i) =>
-        `PH${String(i + 1).padStart(2, "0")}0000000_SSH_ssa4`
-      ),
-      "PH150000000_SSH_ssa4",
-      "PH160000000_SSH_ssa4",
-      "PH170000000_SSH_ssa4",
-      "PH180000000_SSH_ssa4",
-    ],
-    variable: "HAZ",
-    colors: { 1: "#F2C94C", 2: "#F2994A", 3: "#EB5757" },
-  },
-};
+// Free dark basemap style (CARTO Dark Matter — no token needed)
+const DARK_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
 // Critical facilities GeoJSON from NOAH S3
 const CRITICAL_FACILITIES = {
@@ -63,11 +29,25 @@ const CRITICAL_FACILITIES = {
   schools: "https://upri-noah.s3.ap-southeast-1.amazonaws.com/critical_facilities/schools.geojson",
 };
 
+function getMagnitudeColor(mag: number): string {
+  if (mag >= 7) return "#CE1126";
+  if (mag >= 5) return "#FF6B35";
+  if (mag >= 4) return "#FCD116";
+  return "#0038A8";
+}
+
+function getMagnitudeRadius(mag: number): number {
+  if (mag >= 7) return 18;
+  if (mag >= 6) return 14;
+  if (mag >= 5) return 10;
+  if (mag >= 4) return 7;
+  return 5;
+}
+
 export default function MapPanel() {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
-  const popupsRef = useRef<mapboxgl.Popup[]>([]);
+  const mapInstance = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
   const [earthquakes, setEarthquakes] = useState<EarthquakeFeature[]>([]);
   const [typhoons, setTyphoons] = useState<TyphoonData[]>([]);
@@ -76,82 +56,49 @@ export default function MapPanel() {
   const [showEarthquakes, setShowEarthquakes] = useState(true);
   const [showTyphoons, setShowTyphoons] = useState(true);
   const [showWaterLevels, setShowWaterLevels] = useState(true);
-  const [showFlood, setShowFlood] = useState(false);
-  const [showLandslide, setShowLandslide] = useState(false);
-  const [showStormSurge, setShowStormSurge] = useState(false);
   const [showHospitals, setShowHospitals] = useState(false);
   const [showSchools, setShowSchools] = useState(false);
-  const [hazardLayersAvailable, setHazardLayersAvailable] = useState(true);
   const [mapReady, setMapReady] = useState(false);
 
-  // Initialize Mapbox GL map
+  // Initialize MapLibre GL map
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
-    const map = new mapboxgl.Map({
+    const map = new maplibregl.Map({
       container: mapRef.current,
-      style: "mapbox://styles/mapbox/dark-v11", // Mapbox dark style — clean mission control aesthetic
+      style: DARK_STYLE,
       center: [121.774, 12.8797],
       zoom: 5.5,
+      maxBounds: [[110, 2], [135, 22]],
       attributionControl: false,
-      pitchWithRotate: false,
     });
 
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
-    map.addControl(
-      new mapboxgl.AttributionControl({ compact: true }),
-      "bottom-right"
-    );
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
     map.on("load", () => {
-      // Try to add NOAH hazard tilesets (may fail if tilesets are restricted)
-      try {
-        map.addSource("noah-flood", { type: "vector", url: NOAH_TILESETS.flood.url });
-        NOAH_TILESETS.flood.sourceLayers.forEach((layerName) => {
-          map.addLayer({
-            id: `flood-${layerName}`, type: "fill", source: "noah-flood",
-            "source-layer": layerName,
-            paint: { "fill-color": ["interpolate", ["linear"], ["get", "Var"], 1, "#F2C94C", 2, "#F2994A", 3, "#EB5757"], "fill-opacity": 0.65 },
-            layout: { visibility: "none" },
-          });
-        });
-
-        map.addSource("noah-landslide", { type: "vector", url: NOAH_TILESETS.landslide.url });
-        NOAH_TILESETS.landslide.sourceLayers.forEach((layerName) => {
-          map.addLayer({
-            id: `landslide-${layerName}`, type: "fill", source: "noah-landslide",
-            "source-layer": layerName,
-            paint: { "fill-color": ["interpolate", ["linear"], ["get", "LH"], 1, "#F2C94C", 2, "#F2994A", 3, "#EB5757"], "fill-opacity": 0.65 },
-            layout: { visibility: "none" },
-          });
-        });
-
-        map.addSource("noah-storm-surge", { type: "vector", url: NOAH_TILESETS.stormSurge.url });
-        NOAH_TILESETS.stormSurge.sourceLayers.forEach((layerName) => {
-          map.addLayer({
-            id: `surge-${layerName}`, type: "fill", source: "noah-storm-surge",
-            "source-layer": layerName,
-            paint: { "fill-color": ["interpolate", ["linear"], ["get", "HAZ"], 1, "#F2C94C", 2, "#F2994A", 3, "#EB5757"], "fill-opacity": 0.65 },
-            layout: { visibility: "none" },
-          });
-        });
-      } catch (err) {
-        console.warn("NOAH hazard tilesets not available (restricted access)", err);
-        setHazardLayersAvailable(false);
-      }
-
-      // Listen for tileset errors and gracefully disable
-      map.on("error", (e) => {
-        const msg = e.error?.message || "";
-        if (msg.includes("403") || msg.includes("Forbidden")) {
-          setHazardLayersAvailable(false);
-        }
-      });
-
       // Add earthquake GeoJSON source (empty initially)
       map.addSource("earthquakes", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
+      });
+
+      map.addLayer({
+        id: "earthquake-glow",
+        type: "circle",
+        source: "earthquakes",
+        paint: {
+          "circle-radius": [
+            "interpolate", ["linear"], ["get", "mag"],
+            3, 12, 4, 16, 5, 22, 6, 30, 7, 40,
+          ],
+          "circle-color": [
+            "interpolate", ["linear"], ["get", "mag"],
+            3, "#0038A8", 4, "#FCD116", 5, "#FF6B35", 7, "#CE1126",
+          ],
+          "circle-opacity": 0.15,
+          "circle-blur": 1,
+        },
       });
 
       map.addLayer({
@@ -160,64 +107,43 @@ export default function MapPanel() {
         source: "earthquakes",
         paint: {
           "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["get", "mag"],
-            2, 3,
-            4, 6,
-            5, 10,
-            6, 15,
-            7, 22,
-            8, 30,
+            "interpolate", ["linear"], ["get", "mag"],
+            3, 4, 4, 6, 5, 9, 6, 13, 7, 18,
           ],
           "circle-color": [
-            "interpolate",
-            ["linear"],
-            ["get", "mag"],
-            3, "#0038A8",
-            4, "#FCD116",
-            5, "#FF6B35",
-            7, "#CE1126",
+            "interpolate", ["linear"], ["get", "mag"],
+            3, "#0038A8", 4, "#FCD116", 5, "#FF6B35", 7, "#CE1126",
           ],
-          "circle-opacity": 0.7,
+          "circle-opacity": 0.85,
           "circle-stroke-width": 1.5,
-          "circle-stroke-color": [
-            "interpolate",
-            ["linear"],
-            ["get", "mag"],
-            3, "#0038A8",
-            4, "#FCD116",
-            5, "#FF6B35",
-            7, "#CE1126",
-          ],
-          "circle-stroke-opacity": 0.9,
+          "circle-stroke-color": "rgba(255,255,255,0.3)",
         },
       });
 
-      // Earthquake click popup
+      // Click handler for earthquakes
       map.on("click", "earthquake-circles", (e) => {
         if (!e.features || e.features.length === 0) return;
         const f = e.features[0];
         const coords = (f.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
-        const props = f.properties!;
-        const mag = props.mag;
-        const { color, label } = formatMagnitude(mag);
-        const time = new Date(props.time).toLocaleString("en-PH", {
-          timeZone: "Asia/Manila",
-        });
+        const mag = f.properties?.mag || 0;
+        const place = f.properties?.place || "Unknown";
+        const time = f.properties?.time ? new Date(f.properties.time).toLocaleString() : "";
+        const color = getMagnitudeColor(mag);
 
-        new mapboxgl.Popup({ className: "noah-popup", maxWidth: "280px" })
+        new maplibregl.Popup({ className: "noah-popup", maxWidth: "280px" })
           .setLngLat(coords)
           .setHTML(`
             <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#e5e7eb;">
-              <div style="font-weight:700;font-size:15px;color:${color};margin-bottom:4px;">M${Number(mag).toFixed(1)} Earthquake</div>
-              <div style="margin-bottom:2px;">${props.place}</div>
-              <div style="color:#9CA3AF;font-size:11px;font-family:'JetBrains Mono',monospace;">${time} PHT</div>
-              <div style="margin-top:8px;display:flex;gap:4px;">
-                <span style="background:${color};color:white;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">${label}</span>
-                ${props.tsunami ? '<span style="background:#CE1126;color:white;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">TSUNAMI</span>' : ""}
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="background:${color};color:white;font-weight:800;font-size:18px;width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;">${mag.toFixed(1)}</div>
+                <div>
+                  <div style="font-weight:700;font-size:13px;">${place}</div>
+                  <div style="font-size:10px;color:#9CA3AF;">${time}</div>
+                </div>
               </div>
-              <a href="${props.url}" target="_blank" rel="noopener" style="display:block;margin-top:8px;color:#0038A8;font-size:10px;">View on USGS →</a>
+              <div style="font-size:10px;color:#9CA3AF;">
+                Depth: ${f.properties?.depth || "N/A"} km • ${formatMagnitude(mag)}
+              </div>
             </div>
           `)
           .addTo(map);
@@ -231,80 +157,95 @@ export default function MapPanel() {
       });
 
       setMapReady(true);
+      mapInstance.current = map;
     });
-
-    mapInstance.current = map;
-
-    const observer = new ResizeObserver(() => {
-      map.resize();
-    });
-    observer.observe(mapRef.current);
 
     return () => {
-      observer.disconnect();
       map.remove();
       mapInstance.current = null;
     };
   }, []);
 
-  // Fetch data
+  // Fetch earthquake data
   useEffect(() => {
-    const loadEQ = async () => {
-      const data = await fetchEarthquakes();
-      setEarthquakes(data);
+    const load = async () => {
+      try {
+        const data = await fetchEarthquakes();
+        setEarthquakes(data);
+      } catch (err) {
+        console.warn("Failed to fetch earthquakes:", err);
+      }
     };
-    const loadTC = async () => {
-      const data = await fetchTyphoons();
-      setTyphoons(data);
-    };
-    const loadWL = async () => {
-      const data = await fetchWaterLevels();
-      setWaterLevels(data);
-    };
-    loadEQ();
-    loadTC();
-    loadWL();
-    const eqInterval = setInterval(loadEQ, 300000);
-    const tcInterval = setInterval(loadTC, 600000);
-    const wlInterval = setInterval(loadWL, 120000);
-    return () => {
-      clearInterval(eqInterval);
-      clearInterval(tcInterval);
-      clearInterval(wlInterval);
-    };
+    load();
+    const interval = setInterval(load, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Update earthquake source data
+  // Fetch typhoon data
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await fetchTyphoons();
+        setTyphoons(data);
+      } catch (err) {
+        console.warn("Failed to fetch typhoons:", err);
+      }
+    };
+    load();
+    const interval = setInterval(load, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch water level data
+  useEffect(() => {
+    const loadWL = async () => {
+      try {
+        const data = await fetchWaterLevels();
+        setWaterLevels(data);
+      } catch (err) {
+        console.warn("Failed to fetch water levels:", err);
+      }
+    };
+    loadWL();
+    const interval = setInterval(loadWL, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update earthquake layer data + visibility
   useEffect(() => {
     if (!mapReady || !mapInstance.current) return;
     const map = mapInstance.current;
-    const source = map.getSource("earthquakes") as mapboxgl.GeoJSONSource;
-    if (!source) return;
+    const src = map.getSource("earthquakes") as maplibregl.GeoJSONSource | undefined;
+    if (!src) return;
 
-    if (showEarthquakes && earthquakes.length > 0) {
-      source.setData({
-        type: "FeatureCollection",
-        features: earthquakes.map((eq) => ({
-          type: "Feature" as const,
-          geometry: eq.geometry,
-          properties: eq.properties,
-        })),
-      });
-      map.setLayoutProperty("earthquake-circles", "visibility", "visible");
-    } else {
-      source.setData({ type: "FeatureCollection", features: [] });
-      if (map.getLayer("earthquake-circles")) {
-        map.setLayoutProperty("earthquake-circles", "visibility", "none");
-      }
-    }
+    src.setData({
+      type: "FeatureCollection",
+      features: earthquakes.map((eq) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: eq.geometry.coordinates,
+        },
+        properties: {
+          mag: eq.properties.mag,
+          place: eq.properties.place,
+          time: eq.properties.time,
+          depth: eq.geometry.coordinates[2],
+        },
+      })),
+    });
+
+    const vis = showEarthquakes ? "visible" : "none";
+    if (map.getLayer("earthquake-circles")) map.setLayoutProperty("earthquake-circles", "visibility", vis);
+    if (map.getLayer("earthquake-glow")) map.setLayoutProperty("earthquake-glow", "visibility", vis);
   }, [earthquakes, showEarthquakes, mapReady]);
 
-  // Update typhoon markers (using Mapbox markers since they need custom HTML)
+  // Render typhoon markers
   useEffect(() => {
     if (!mapReady || !mapInstance.current) return;
     const map = mapInstance.current;
 
-    // Clear existing typhoon markers
+    // Remove old typhoon markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
@@ -312,52 +253,58 @@ export default function MapPanel() {
 
     typhoons.forEach((tc) => {
       const color = getTyphoonColor(tc.alertLevel, tc.windSpeed);
-      const cat = getTyphoonCategory(tc.windSpeed);
+      const category = getTyphoonCategory(tc.windSpeed);
 
-      // Typhoon marker element
+      // Animated typhoon marker
       const el = document.createElement("div");
-      el.className = "typhoon-map-marker";
-      el.innerHTML = `
-        <div style="position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;">
-          <div class="typhoon-spin" style="font-size:32px;filter:drop-shadow(0 0 10px ${color});">🌀</div>
-          <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);white-space:nowrap;background:${color};color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;letter-spacing:0.03em;">
-            ${tc.name}
-          </div>
-        </div>
+      el.style.cssText = `
+        width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+        font-size: 24px; cursor: pointer; animation: typhoon-spin 3s linear infinite;
+        filter: drop-shadow(0 0 8px ${color});
       `;
+      el.textContent = "🌀";
 
-      const popup = new mapboxgl.Popup({
+      // Pulsing ring
+      const ring = document.createElement("div");
+      ring.style.cssText = `
+        position: absolute; width: 50px; height: 50px; border-radius: 50%;
+        border: 2px solid ${color}; opacity: 0.5; animation: typhoon-pulse 2s ease-out infinite;
+        pointer-events: none;
+      `;
+      el.appendChild(ring);
+
+      const popup = new maplibregl.Popup({
         className: "noah-popup",
         maxWidth: "280px",
-        offset: 25,
+        offset: 20,
       }).setHTML(`
-        <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.5;color:#e5e7eb;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span style="font-size:22px;">🌀</span>
+        <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#e5e7eb;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="font-size:28px;filter:drop-shadow(0 0 6px ${color});">🌀</span>
             <div>
-              <div style="font-weight:700;font-size:15px;color:${color};">${tc.name}</div>
-              <div style="font-size:10px;color:#9CA3AF;">${cat}</div>
+              <div style="font-weight:700;font-size:14px;color:${color};">${tc.name}</div>
+              <div style="font-size:10px;color:#9CA3AF;">${category}</div>
             </div>
           </div>
-          <div style="background:rgba(255,255,255,0.08);border-radius:6px;padding:8px;margin-bottom:6px;">
+          <div style="background:rgba(255,255,255,0.08);border-radius:6px;padding:8px;">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
               <span style="color:#9CA3AF;font-size:10px;">Wind Speed</span>
-              <span style="font-weight:600;font-family:'JetBrains Mono',monospace;font-size:12px;">${tc.windSpeed.toFixed(0)} km/h</span>
+              <span style="color:${color};font-weight:700;font-family:'JetBrains Mono',monospace;">${tc.windSpeed} km/h</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#9CA3AF;font-size:10px;">Position</span>
-              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;">${tc.lat.toFixed(1)}°, ${tc.lon.toFixed(1)}°</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;">
               <span style="color:#9CA3AF;font-size:10px;">Alert Level</span>
               <span style="background:${color};color:white;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;">${tc.alertLevel}</span>
             </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span style="color:#9CA3AF;font-size:10px;">Source</span>
+              <span style="font-size:10px;">GDACS</span>
+            </div>
           </div>
-          <a href="${tc.link}" target="_blank" rel="noopener" style="display:block;color:#0038A8;font-size:10px;">View on GDACS →</a>
+          <a href="${tc.link}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:6px;color:#0038A8;font-size:10px;text-decoration:underline;">View on GDACS →</a>
         </div>
       `);
 
-      const marker = new mapboxgl.Marker({ element: el })
+      const marker = new maplibregl.Marker({ element: el })
         .setLngLat([tc.lon, tc.lat])
         .setPopup(popup)
         .addTo(map);
@@ -366,41 +313,50 @@ export default function MapPanel() {
     });
   }, [typhoons, showTyphoons, mapReady]);
 
-  // Update water level markers
+  // Render water level station markers
   useEffect(() => {
     if (!mapReady || !mapInstance.current) return;
     const map = mapInstance.current;
 
-    // Clear existing water level popups/markers
-    popupsRef.current.forEach((p) => p.remove());
-    popupsRef.current = [];
+    // Remove old WL markers (keep separate from typhoon markers)
+    document.querySelectorAll(".wl-marker").forEach((el) => el.remove());
 
-    // Remove existing WL markers by class
-    document.querySelectorAll(".wl-map-marker").forEach((el) => el.remove());
-
-    if (!showWaterLevels) return;
+    if (!showWaterLevels || waterLevels.length === 0) return;
 
     waterLevels.forEach((station) => {
-      if (!station.lat || !station.lon) return;
       const color = getWaterLevelColor(station.status);
-      const statusLabel = station.status.toUpperCase();
+      const wl = parseFloat(station.currentWL);
+      const statusLabel =
+        (station.criticalWL !== null && wl >= station.criticalWL)
+          ? "CRITICAL"
+          : (station.alarmWL !== null && wl >= station.alarmWL)
+          ? "ALARM"
+          : (station.alertWL !== null && wl >= station.alertWL)
+          ? "ALERT"
+          : "NORMAL";
 
       const el = document.createElement("div");
-      el.className = "wl-map-marker";
-      el.style.cssText = `width:22px;height:22px;border-radius:4px;background:${color};border:2px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px ${color}66;cursor:pointer;font-size:11px;`;
+      el.className = "wl-marker";
+      el.style.cssText = `
+        width: 22px; height: 22px; border-radius: 50%;
+        background: ${color}; border: 2px solid rgba(255,255,255,0.4);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 11px; cursor: pointer;
+        box-shadow: 0 0 8px ${color}88;
+      `;
       el.textContent = "🌊";
 
       let thresholdHTML = "";
       if (station.alertWL || station.alarmWL || station.criticalWL) {
-        thresholdHTML = `<div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;margin-top:6px;">
-          <div style="color:#9CA3AF;font-size:9px;font-weight:600;margin-bottom:3px;">THRESHOLDS</div>`;
+        thresholdHTML = `<div style="margin-top:4px;background:rgba(255,255,255,0.06);border-radius:4px;padding:4px 6px;">`;
+        thresholdHTML += `<div style="font-size:9px;color:#9CA3AF;margin-bottom:2px;">Thresholds</div>`;
         if (station.alertWL) thresholdHTML += `<div style="display:flex;justify-content:space-between;"><span style="color:#FCD116;font-size:10px;">Alert</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${station.alertWL}m</span></div>`;
         if (station.alarmWL) thresholdHTML += `<div style="display:flex;justify-content:space-between;"><span style="color:#FF6B35;font-size:10px;">Alarm</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${station.alarmWL}m</span></div>`;
         if (station.criticalWL) thresholdHTML += `<div style="display:flex;justify-content:space-between;"><span style="color:#CE1126;font-size:10px;">Critical</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${station.criticalWL}m</span></div>`;
         thresholdHTML += `</div>`;
       }
 
-      const popup = new mapboxgl.Popup({
+      const popup = new maplibregl.Popup({
         className: "noah-popup",
         maxWidth: "260px",
         offset: 15,
@@ -436,53 +392,16 @@ export default function MapPanel() {
         </div>
       `);
 
-      new mapboxgl.Marker({ element: el })
+      new maplibregl.Marker({ element: el })
         .setLngLat([station.lon, station.lat])
         .setPopup(popup)
         .addTo(map);
     });
   }, [waterLevels, showWaterLevels, mapReady]);
 
-  // Toggle NOAH hazard layers visibility
-  const toggleHazardLayers = useCallback(
-    (prefix: string, sourceLayers: string[], visible: boolean) => {
-      if (!mapInstance.current) return;
-      const map = mapInstance.current;
-      sourceLayers.forEach((layerName) => {
-        const layerId = `${prefix}-${layerName}`;
-        if (map.getLayer(layerId)) {
-          map.setLayoutProperty(
-            layerId,
-            "visibility",
-            visible ? "visible" : "none"
-          );
-        }
-      });
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (!mapReady) return;
-    toggleHazardLayers("flood", NOAH_TILESETS.flood.sourceLayers, showFlood);
-  }, [showFlood, mapReady, toggleHazardLayers]);
-
-  useEffect(() => {
-    if (!mapReady) return;
-    toggleHazardLayers("landslide", NOAH_TILESETS.landslide.sourceLayers, showLandslide);
-  }, [showLandslide, mapReady, toggleHazardLayers]);
-
-  useEffect(() => {
-    if (!mapReady) return;
-    toggleHazardLayers("surge", NOAH_TILESETS.stormSurge.sourceLayers, showStormSurge);
-  }, [showStormSurge, mapReady, toggleHazardLayers]);
-
   const toggleEarthquakes = useCallback(() => setShowEarthquakes((v) => !v), []);
   const toggleTyphoons = useCallback(() => setShowTyphoons((v) => !v), []);
   const toggleWaterLevels = useCallback(() => setShowWaterLevels((v) => !v), []);
-  const toggleFlood = useCallback(() => setShowFlood((v) => !v), []);
-  const toggleLandslide = useCallback(() => setShowLandslide((v) => !v), []);
-  const toggleStormSurge = useCallback(() => setShowStormSurge((v) => !v), []);
   const toggleHospitals = useCallback(() => setShowHospitals((v) => !v), []);
   const toggleSchools = useCallback(() => setShowSchools((v) => !v), []);
 
@@ -514,7 +433,7 @@ export default function MapPanel() {
           const f = e.features[0];
           const coords = (f.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
           const name = f.properties?.name || f.properties?.NAME || "Hospital";
-          new mapboxgl.Popup({ className: "noah-popup", maxWidth: "220px" })
+          new maplibregl.Popup({ className: "noah-popup", maxWidth: "220px" })
             .setLngLat(coords)
             .setHTML(`
               <div style="font-family:'Inter',sans-serif;font-size:12px;color:#e5e7eb;">
@@ -527,12 +446,8 @@ export default function MapPanel() {
             `)
             .addTo(map);
         });
-        map.on("mouseenter", "hospitals-layer", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", "hospitals-layer", () => {
-          map.getCanvas().style.cursor = "";
-        });
+        map.on("mouseenter", "hospitals-layer", () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", "hospitals-layer", () => { map.getCanvas().style.cursor = ""; });
       } else {
         map.setLayoutProperty("hospitals-layer", "visibility", "visible");
       }
@@ -571,7 +486,7 @@ export default function MapPanel() {
           const f = e.features[0];
           const coords = (f.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
           const name = f.properties?.name || f.properties?.NAME || "School";
-          new mapboxgl.Popup({ className: "noah-popup", maxWidth: "220px" })
+          new maplibregl.Popup({ className: "noah-popup", maxWidth: "220px" })
             .setLngLat(coords)
             .setHTML(`
               <div style="font-family:'Inter',sans-serif;font-size:12px;color:#e5e7eb;">
@@ -584,12 +499,8 @@ export default function MapPanel() {
             `)
             .addTo(map);
         });
-        map.on("mouseenter", "schools-layer", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", "schools-layer", () => {
-          map.getCanvas().style.cursor = "";
-        });
+        map.on("mouseenter", "schools-layer", () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", "schools-layer", () => { map.getCanvas().style.cursor = ""; });
       } else {
         map.setLayoutProperty("schools-layer", "visibility", "visible");
       }
@@ -600,10 +511,10 @@ export default function MapPanel() {
     }
   }, [showSchools, mapReady]);
 
-  const btnClass = (active: boolean, activeColor: string) =>
+  const btnClass = (active: boolean) =>
     `flex items-center gap-1 px-2 py-1 rounded text-[9px] font-semibold tracking-wider transition-all border ${
       active
-        ? `bg-[oklch(0.15_0.02_260_/_0.9)] border-[${activeColor}] text-[${activeColor}] shadow-[0_0_6px_${activeColor}44]`
+        ? "bg-[oklch(0.18_0.02_260_/_0.95)] border-current shadow-sm"
         : "bg-[oklch(0.12_0.015_260_/_0.9)] border-[oklch(0.25_0.02_260)] text-[oklch(0.45_0.01_260)]"
     }`;
 
@@ -611,79 +522,50 @@ export default function MapPanel() {
     <div className="h-full w-full relative">
       <div ref={mapRef} className="h-full w-full" />
 
-      {/* Layer toggle controls — Row 1: Data layers */}
+      {/* Layer toggle controls */}
       <div className="absolute top-2 left-2 z-[1000] flex flex-col gap-1.5">
+        {/* Row 1: Data layers */}
         <div className="flex gap-1">
           <button
             onClick={toggleEarthquakes}
-            className={btnClass(showEarthquakes, "#FCD116")}
-            style={showEarthquakes ? { borderColor: "#FCD116", color: "#FCD116" } : {}}
+            className={btnClass(showEarthquakes)}
+            style={showEarthquakes ? { color: "#FCD116", borderColor: "#FCD116" } : {}}
             title="Toggle earthquake markers"
           >
             <span className="text-[11px]">🔴</span> EQ
           </button>
           <button
             onClick={toggleTyphoons}
-            className={btnClass(showTyphoons, "#FF6B35")}
-            style={showTyphoons ? { borderColor: "#FF6B35", color: "#FF6B35" } : {}}
+            className={btnClass(showTyphoons)}
+            style={showTyphoons ? { color: "#FF6B35", borderColor: "#FF6B35" } : {}}
             title="Toggle typhoon tracker"
           >
             <span className="text-[11px]">🌀</span> TC
           </button>
           <button
             onClick={toggleWaterLevels}
-            className={btnClass(showWaterLevels, "#0038A8")}
-            style={showWaterLevels ? { borderColor: "#0038A8", color: "#0038A8" } : {}}
+            className={btnClass(showWaterLevels)}
+            style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}}
             title="Toggle water level stations"
           >
             <span className="text-[11px]">🌊</span> WL
           </button>
         </div>
 
-        {/* Row 2: NOAH hazard layers (hidden if tilesets unavailable) */}
-        {hazardLayersAvailable && (
-          <div className="flex gap-1">
-            <button
-              onClick={toggleFlood}
-              className={btnClass(showFlood, "#EB5757")}
-              style={showFlood ? { borderColor: "#EB5757", color: "#EB5757" } : {}}
-              title="Toggle NOAH Flood Hazard (100yr)"
-            >
-              <span className="text-[11px]">💧</span> FLOOD
-            </button>
-            <button
-              onClick={toggleLandslide}
-              className={btnClass(showLandslide, "#F2994A")}
-              style={showLandslide ? { borderColor: "#F2994A", color: "#F2994A" } : {}}
-              title="Toggle NOAH Landslide Hazard"
-            >
-              <span className="text-[11px]">⛰️</span> SLIDE
-            </button>
-            <button
-              onClick={toggleStormSurge}
-              className={btnClass(showStormSurge, "#00D4FF")}
-              style={showStormSurge ? { borderColor: "#00D4FF", color: "#00D4FF" } : {}}
-              title="Toggle NOAH Storm Surge (SSA4)"
-            >
-              <span className="text-[11px]">🌊</span> SURGE
-            </button>
-          </div>
-        )}
-
-        {/* Row 3: Facilities */}
+        {/* Row 2: Facilities */}
         <div className="flex gap-1">
           <button
             onClick={toggleHospitals}
-            className={btnClass(showHospitals, "#00D4FF")}
-            style={showHospitals ? { borderColor: "#00D4FF", color: "#00D4FF" } : {}}
+            className={btnClass(showHospitals)}
+            style={showHospitals ? { color: "#00D4FF", borderColor: "#00D4FF" } : {}}
             title="Toggle NOAH Hospitals"
           >
             <span className="text-[11px]">🏥</span> HOSP
           </button>
           <button
             onClick={toggleSchools}
-            className={btnClass(showSchools, "#FCD116")}
-            style={showSchools ? { borderColor: "#FCD116", color: "#FCD116" } : {}}
+            className={btnClass(showSchools)}
+            style={showSchools ? { color: "#FCD116", borderColor: "#FCD116" } : {}}
             title="Toggle NOAH Schools"
           >
             <span className="text-[11px]">🏫</span> SCHOOL
@@ -696,44 +578,19 @@ export default function MapPanel() {
         <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider">
           EARTHQUAKES
         </div>
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#CE1126] shadow-[0_0_4px_#CE1126]" />
-          <span className="text-[oklch(0.70_0.005_260)]">M7+ Major</span>
-        </div>
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#FF6B35] shadow-[0_0_4px_#FF6B35]" />
-          <span className="text-[oklch(0.70_0.005_260)]">M5-7 Strong</span>
-        </div>
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#FCD116] shadow-[0_0_4px_#FCD116]" />
-          <span className="text-[oklch(0.70_0.005_260)]">M4-5 Moderate</span>
-        </div>
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#0038A8] shadow-[0_0_4px_#0038A8]" />
-          <span className="text-[oklch(0.70_0.005_260)]">M3-4 Light</span>
-        </div>
+        {[
+          { color: "#CE1126", label: "M7+ Major" },
+          { color: "#FF6B35", label: "M5-7 Strong" },
+          { color: "#FCD116", label: "M4-5 Moderate" },
+          { color: "#0038A8", label: "M3-4 Light" },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-1.5 mb-0.5">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: item.color, boxShadow: `0 0 4px ${item.color}` }} />
+            <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
+          </div>
+        ))}
 
-        {hazardLayersAvailable && (
-          <>
-            <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
-              NOAH HAZARDS
-            </div>
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="w-2.5 h-2.5 rounded bg-[#EB5757]" />
-              <span className="text-[oklch(0.70_0.005_260)]">High Risk</span>
-            </div>
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="w-2.5 h-2.5 rounded bg-[#F2994A]" />
-              <span className="text-[oklch(0.70_0.005_260)]">Medium Risk</span>
-            </div>
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <span className="w-2.5 h-2.5 rounded bg-[#F2C94C]" />
-              <span className="text-[oklch(0.70_0.005_260)]">Low Risk</span>
-            </div>
-          </>
-        )}
-
-        <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
+        <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
           FACILITIES
         </div>
         <div className="flex items-center gap-1.5 mb-0.5">
@@ -748,22 +605,17 @@ export default function MapPanel() {
         <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
           WATER LEVELS
         </div>
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="w-2.5 h-2.5 rounded bg-[#0038A8]" />
-          <span className="text-[oklch(0.70_0.005_260)]">Normal</span>
-        </div>
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="w-2.5 h-2.5 rounded bg-[#FCD116]" />
-          <span className="text-[oklch(0.70_0.005_260)]">Alert</span>
-        </div>
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="w-2.5 h-2.5 rounded bg-[#FF6B35]" />
-          <span className="text-[oklch(0.70_0.005_260)]">Alarm</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded bg-[#CE1126]" />
-          <span className="text-[oklch(0.70_0.005_260)]">Critical</span>
-        </div>
+        {[
+          { color: "#0038A8", label: "Normal" },
+          { color: "#FCD116", label: "Alert" },
+          { color: "#FF6B35", label: "Alarm" },
+          { color: "#CE1126", label: "Critical" },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-1.5 mb-0.5">
+            <span className="w-2.5 h-2.5 rounded" style={{ background: item.color }} />
+            <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
+          </div>
+        ))}
       </div>
 
       {/* Counts badge */}
@@ -780,32 +632,15 @@ export default function MapPanel() {
         )}
         {waterLevels.length > 0 && (
           <div>
-            <span className="text-[#0038A8] font-bold">
-              {waterLevels.length}
-            </span>{" "}
+            <span className="text-[#0038A8] font-bold">{waterLevels.length}</span>{" "}
             water stations
-          </div>
-        )}
-        {showFlood && (
-          <div className="text-[#EB5757]">
-            <span className="font-bold">FLOOD</span> hazard ON
-          </div>
-        )}
-        {showLandslide && (
-          <div className="text-[#F2994A]">
-            <span className="font-bold">SLIDE</span> hazard ON
-          </div>
-        )}
-        {showStormSurge && (
-          <div className="text-[#00D4FF]">
-            <span className="font-bold">SURGE</span> hazard ON
           </div>
         )}
       </div>
 
-      {/* NOAH attribution */}
+      {/* Attribution */}
       <div className="absolute bottom-2 right-2 z-[1000] text-[8px] text-[oklch(0.45_0.01_260)] font-mono">
-        Hazard data: UPRI-NOAH / DOST
+        Data: USGS / GDACS / PAGASA / UPRI-NOAH
       </div>
     </div>
   );
