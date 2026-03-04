@@ -2,7 +2,7 @@
 // Uses free CARTO dark basemap tiles — no API token required
 // Earthquake markers from USGS, Typhoon tracker from GDACS, Water level stations from PAGASA
 // NOAH critical facilities (Hospitals, Schools) from S3 GeoJSON
-// NOAH Hazard overlays: Flood, Landslide, Storm Surge (Metro Manila) from simplified GeoJSON
+// NOAH Hazard overlays: Flood, Landslide, Storm Surge (Nationwide 81 provinces) from simplified GeoJSON
 // Toggle controls for each layer type
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -30,11 +30,11 @@ const CRITICAL_FACILITIES = {
   schools: "https://upri-noah.s3.ap-southeast-1.amazonaws.com/critical_facilities/schools.geojson",
 };
 
-// NOAH Hazard GeoJSON files (Metro Manila, simplified)
+// NOAH Hazard GeoJSON files (Nationwide, 81 provinces simplified)
 const NOAH_HAZARDS = {
-  flood: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/flood_mm_1dec0b8c.geojson",
-  landslide: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/landslide_mm_effcdf49.geojson",
-  stormsurge: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/stormsurge_mm_6b50dc02.geojson",
+  flood: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/flood_nationwide_8c683cdc.geojson",
+  landslide: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/landslide_nationwide_766a44fa.geojson",
+  stormsurge: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/stormsurge_nationwide_3a31e988.geojson",
 };
 
 // Hazard color schemes matching NOAH Studio
@@ -537,7 +537,7 @@ export default function MapPanel() {
                 </div>
                 <div>
                   <div style="font-weight:700;font-size:13px;">${typeLabel} Hazard</div>
-                  <div style="font-size:10px;color:#9CA3AF;">NOAH Metro Manila</div>
+                  <div style="font-size:10px;color:#9CA3AF;">NOAH Philippines</div>
                 </div>
               </div>
               <div style="background:rgba(255,255,255,0.08);border-radius:6px;padding:8px;">
