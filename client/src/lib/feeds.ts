@@ -24,6 +24,7 @@ export interface EarthquakeFeature {
     type: string;
   };
   geometry: {
+    type: "Point";
     coordinates: [number, number, number];
   };
 }

@@ -183,34 +183,48 @@
   transform: rotate(270deg);
 }
 
-/* Leaflet dark theme overrides */
-.leaflet-container {
-  background: oklch(0.10 0.015 260) !important;
-}
-.leaflet-control-zoom a {
-  background: oklch(0.16 0.02 260) !important;
-  color: oklch(0.85 0.005 260) !important;
-  border-color: oklch(0.25 0.02 260) !important;
-}
-.leaflet-control-zoom a:hover {
-  background: oklch(0.22 0.02 260) !important;
-}
-.leaflet-control-attribution {
+/* Mapbox GL dark theme overrides */
+.mapboxgl-ctrl-attrib {
   background: oklch(0.10 0.015 260 / 0.8) !important;
   color: oklch(0.50 0.01 260) !important;
   font-size: 9px !important;
 }
-.leaflet-control-attribution a {
+.mapboxgl-ctrl-attrib a {
   color: oklch(0.55 0.18 260) !important;
 }
-.leaflet-popup-content-wrapper {
+.mapboxgl-ctrl-group {
+  background: oklch(0.16 0.02 260) !important;
+  border: 1px solid oklch(0.25 0.02 260) !important;
+}
+.mapboxgl-ctrl-group button {
+  background: transparent !important;
+}
+.mapboxgl-ctrl-group button + button {
+  border-top: 1px solid oklch(0.25 0.02 260) !important;
+}
+.mapboxgl-ctrl-group button span {
+  filter: invert(1) brightness(0.85);
+}
+.noah-popup .mapboxgl-popup-content {
   background: oklch(0.16 0.02 260) !important;
   color: oklch(0.90 0.005 260) !important;
   border-radius: 8px !important;
   box-shadow: 0 8px 32px oklch(0 0 0 / 0.5) !important;
+  padding: 12px !important;
+  border: 1px solid oklch(0.28 0.02 260 / 0.5) !important;
 }
-.leaflet-popup-tip {
-  background: oklch(0.16 0.02 260) !important;
+.noah-popup .mapboxgl-popup-tip {
+  border-top-color: oklch(0.16 0.02 260) !important;
+  border-bottom-color: oklch(0.16 0.02 260) !important;
+}
+.noah-popup .mapboxgl-popup-close-button {
+  color: oklch(0.65 0.01 260) !important;
+  font-size: 18px !important;
+  padding: 4px 8px !important;
+}
+.noah-popup .mapboxgl-popup-close-button:hover {
+  color: white !important;
+  background: transparent !important;
 }
 
 /* Panel glass effect */
@@ -310,9 +324,7 @@
   animation: typhoon-eye-pulse 2s ease-in-out infinite;
 }
 
-/* Typhoon marker container — remove default leaflet icon styles */
-.typhoon-marker {
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
+/* Typhoon marker container */
+.typhoon-map-marker {
+  cursor: pointer;
 }
