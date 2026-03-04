@@ -141,9 +141,9 @@ export async function fetchRSSFeed(url: string, source: string): Promise<FeedIte
 
 export async function fetchAllNews(): Promise<FeedItem[]> {
   const feeds = [
+    { url: "https://data.gmanetwork.com/gno/rss/news/feed.xml", source: "GMA News" },
     { url: "https://www.rappler.com/feed/", source: "Rappler" },
     { url: "https://newsinfo.inquirer.net/feed", source: "Inquirer" },
-    { url: "https://data.gmanetwork.com/gno/rss/news/feed.xml", source: "GMA News" },
     { url: "https://www.philstar.com/rss/headlines", source: "PhilStar" },
   ];
 

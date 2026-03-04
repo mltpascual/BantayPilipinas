@@ -40,6 +40,9 @@ const NOAH_HAZARDS = {
 // Volcano Hazard Zones GeoJSON (12 major volcanoes with PDZ/EDZ)
 const VOLCANO_HAZARDS = "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/volcano_hazard_zones_28e9197a.geojson";
 
+// Evacuation Centers GeoJSON (6,424 centers from OpenStreetMap)
+const EVACUATION_CENTERS = "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/evacuation_centers_ph_a8c5b5f2.geojson";
+
 // RainViewer API endpoint for radar timestamps
 const RAINVIEWER_API = "https://api.rainviewer.com/public/weather-maps.json";
 
@@ -102,6 +105,8 @@ export default function MapPanel() {
   const [showStormSurge, setShowStormSurge] = useState(false);
   const [showVolcano, setShowVolcano] = useState(false);
   const [showRadar, setShowRadar] = useState(false);
+  const [showEvacCenters, setShowEvacCenters] = useState(false);
+  const [showEqHeatmap, setShowEqHeatmap] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [hazardLoading, setHazardLoading] = useState<Record<string, boolean>>({});
 
@@ -937,6 +942,119 @@ export default function MapPanel() {
     }
   }, [showSchools, mapReady]);
 
+  // Toggle evacuation centers layer
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+    const map = mapInstance.current;
+
+    if (showEvacCenters) {
+      if (!map.getSource("evac-centers")) {
+        setHazardLoading(prev => ({ ...prev, evac: true }));
+        map.addSource("evac-centers", { type: "geojson", data: EVACUATION_CENTERS });
+        map.addLayer({
+          id: "evac-centers-layer",
+          type: "circle",
+          source: "evac-centers",
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 10, 4, 15, 8],
+            "circle-color": "#4CAF50",
+            "circle-stroke-width": 1,
+            "circle-stroke-color": "#ffffff",
+            "circle-opacity": 0.8,
+          },
+        });
+        map.on("click", "evac-centers-layer", (e) => {
+          if (!e.features || e.features.length === 0) return;
+          const f = e.features[0];
+          const coords = (f.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
+          const name = f.properties?.name || "Evacuation Center";
+          const amenity = f.properties?.amenity || "shelter";
+          const capacity = f.properties?.capacity || "N/A";
+          new maplibregl.Popup({ className: "noah-popup", maxWidth: "240px" })
+            .setLngLat(coords)
+            .setHTML(`
+              <div style="font-family:'Inter',sans-serif;font-size:12px;color:#1f2937;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                  <div style="background:#4CAF50;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-weight:700;font-size:13px;">${name}</div>
+                    <div style="font-size:10px;color:#6B7280;text-transform:capitalize;">${amenity}</div>
+                  </div>
+                </div>
+                ${capacity !== "N/A" ? `<div style="font-size:10px;color:#6B7280;">Capacity: ${capacity}</div>` : ""}
+                <div style="font-size:9px;color:#6B7280;margin-top:2px;">Source: OpenStreetMap / DSWD</div>
+              </div>
+            `)
+            .addTo(map);
+        });
+        map.on("mouseenter", "evac-centers-layer", () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", "evac-centers-layer", () => { map.getCanvas().style.cursor = ""; });
+        setHazardLoading(prev => ({ ...prev, evac: false }));
+      } else {
+        map.setLayoutProperty("evac-centers-layer", "visibility", "visible");
+      }
+    } else {
+      if (map.getLayer("evac-centers-layer")) map.setLayoutProperty("evac-centers-layer", "visibility", "none");
+    }
+  }, [showEvacCenters, mapReady]);
+
+  // Toggle earthquake heatmap layer
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+    const map = mapInstance.current;
+
+    if (showEqHeatmap) {
+      if (!map.getSource("eq-heatmap-src")) {
+        // Fetch 1 year of M2.5+ earthquakes for the Philippine region
+        const fetchHeatmapData = async () => {
+          try {
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+            const startTime = oneYearAgo.toISOString().split("T")[0];
+            const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${startTime}&minmagnitude=2.5&minlatitude=4&maxlatitude=22&minlongitude=110&maxlongitude=135&limit=5000`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            map.addSource("eq-heatmap-src", {
+              type: "geojson",
+              data: data,
+            });
+
+            map.addLayer({
+              id: "eq-heatmap-layer",
+              type: "heatmap",
+              source: "eq-heatmap-src",
+              paint: {
+                "heatmap-weight": ["interpolate", ["linear"], ["get", "mag"], 2.5, 0.3, 5, 1, 7, 2],
+                "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1, 9, 3],
+                "heatmap-color": [
+                  "interpolate", ["linear"], ["heatmap-density"],
+                  0, "rgba(0,0,0,0)",
+                  0.1, "rgba(0,56,168,0.3)",
+                  0.3, "rgba(65,182,230,0.5)",
+                  0.5, "rgba(252,209,22,0.6)",
+                  0.7, "rgba(255,107,53,0.7)",
+                  1, "rgba(206,17,38,0.85)",
+                ],
+                "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 8, 6, 20, 10, 40],
+                "heatmap-opacity": 0.7,
+              },
+            }, "earthquake-glow");
+          } catch (err) {
+            console.warn("Failed to fetch earthquake heatmap data:", err);
+          }
+        };
+        fetchHeatmapData();
+      } else {
+        if (map.getLayer("eq-heatmap-layer")) map.setLayoutProperty("eq-heatmap-layer", "visibility", "visible");
+      }
+    } else {
+      if (map.getLayer("eq-heatmap-layer")) map.setLayoutProperty("eq-heatmap-layer", "visibility", "none");
+    }
+  }, [showEqHeatmap, mapReady]);
+
   // Province search handler
   const handleSearchInput = useCallback((value: string) => {
     setSearchQuery(value);
@@ -973,6 +1091,8 @@ export default function MapPanel() {
   const toggleStormSurge = useCallback(() => setShowStormSurge((v) => !v), []);
   const toggleVolcano = useCallback(() => setShowVolcano((v) => !v), []);
   const toggleRadar = useCallback(() => setShowRadar((v) => !v), []);
+  const toggleEvacCenters = useCallback(() => setShowEvacCenters((v) => !v), []);
+  const toggleEqHeatmap = useCallback(() => setShowEqHeatmap((v) => !v), []);
 
   const btnClass = (active: boolean) =>
     `flex items-center gap-1 px-2 py-1 rounded text-[9px] font-semibold tracking-wider transition-all border ${
@@ -1134,6 +1254,20 @@ export default function MapPanel() {
           <button onClick={toggleSchools} className={btnClass(showSchools)} style={showSchools ? { color: "#FCD116", borderColor: "#FCD116" } : {}} title="Toggle NOAH Schools">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> School
           </button>
+          <button onClick={toggleEvacCenters} className={btnClass(showEvacCenters)} style={showEvacCenters ? { color: "#4CAF50", borderColor: "#4CAF50" } : {}} title="Toggle Evacuation Centers">
+            {hazardLoading.evac ? (
+              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            ) : (
+              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            )} Evac
+          </button>
+        </div>
+
+        {/* Row 5: Heatmap */}
+        <div className="flex gap-1">
+          <button onClick={toggleEqHeatmap} className={btnClass(showEqHeatmap)} style={showEqHeatmap ? { color: "#FF5722", borderColor: "#FF5722" } : {}} title="Toggle Earthquake Heatmap (1 year)">
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0 -16 0"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/></svg> Heatmap
+          </button>
         </div>
       </div>
 
@@ -1256,6 +1390,34 @@ export default function MapPanel() {
           <span className="text-[oklch(0.70_0.005_260)]">Schools</span>
         </div>
 
+        {/* Evacuation Centers Legend */}
+        {showEvacCenters && (
+          <>
+            <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">EVACUATION CENTERS</div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#4CAF50]" />
+              <span className="text-[oklch(0.70_0.005_260)]">Shelter / Evac Center</span>
+            </div>
+            <div className="text-[8px] text-[oklch(0.50_0.01_260)]">Source: OSM / DSWD (6,424)</div>
+          </>
+        )}
+
+        {/* Earthquake Heatmap Legend */}
+        {showEqHeatmap && (
+          <>
+            <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">EQ HEATMAP (1 YEAR)</div>
+            <div className="flex items-center gap-0.5 mb-0.5">
+              <span className="w-2 h-2 rounded-sm" style={{ background: "rgba(0,56,168,0.5)" }} />
+              <span className="w-2 h-2 rounded-sm" style={{ background: "rgba(65,182,230,0.6)" }} />
+              <span className="w-2 h-2 rounded-sm" style={{ background: "rgba(252,209,22,0.7)" }} />
+              <span className="w-2 h-2 rounded-sm" style={{ background: "rgba(255,107,53,0.8)" }} />
+              <span className="w-2 h-2 rounded-sm" style={{ background: "rgba(206,17,38,0.9)" }} />
+              <span className="text-[oklch(0.70_0.005_260)] ml-1">Low to High density</span>
+            </div>
+            <div className="text-[8px] text-[oklch(0.50_0.01_260)]">Source: USGS M2.5+</div>
+          </>
+        )}
+
         <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">WATER LEVELS</div>
         {[
           { color: "#0038A8", label: "Normal" },
@@ -1289,6 +1451,12 @@ export default function MapPanel() {
         )}
         {showRadar && (
           <div><span className="text-[#00E676] font-bold">RADAR</span> <span className="text-[8px]">Live</span></div>
+        )}
+        {showEvacCenters && (
+          <div><span className="text-[#4CAF50] font-bold">6,424</span> evac centers</div>
+        )}
+        {showEqHeatmap && (
+          <div><span className="text-[#FF5722] font-bold">HEATMAP</span> <span className="text-[8px]">1yr M2.5+</span></div>
         )}
       </div>
 
