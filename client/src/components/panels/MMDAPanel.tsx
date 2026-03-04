@@ -98,9 +98,9 @@ export default function MMDAPanel() {
                 data-theme="dark"
                 data-chrome="noheader nofooter noborders transparent"
                 data-height="100%"
-                href="https://twitter.com/ABORABORAAA"
+                href="https://twitter.com/MMDA"
               >
-                Loading MMDA tweets...
+                Loading @MMDA timeline...
               </a>
             </div>
           ) : (

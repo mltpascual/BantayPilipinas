@@ -1,6 +1,7 @@
 // Design: "Ops Center Noir" — Main dashboard with draggable/resizable panels
 // Header with PH branding, PHT clock, panel toggles
 // react-grid-layout v2 API: gridConfig, dragConfig, resizeConfig
+// Layout: Map dominant (3/4 upper-left), streams right, news/data below
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { GridLayout, verticalCompactor } from "react-grid-layout";
@@ -14,7 +15,6 @@ import MMDAPanel from "@/components/panels/MMDAPanel";
 import PhiVolcsPanel from "@/components/panels/PhiVolcsPanel";
 import WeatherPanel from "@/components/panels/WeatherPanel";
 import WaterLevelPanel from "@/components/panels/WaterLevelPanel";
-import NOAHPanel from "@/components/panels/NOAHPanel";
 
 interface PanelConfig {
   id: string;
@@ -24,21 +24,24 @@ interface PanelConfig {
   defaultLayout: { x: number; y: number; w: number; h: number; minW?: number; minH?: number };
 }
 
-// Layout: 12 columns
-// Row 1 (y=0): Map(5w,9h) | News(4w,9h) | Weather(3w,4h) + PhiVolcs(3w,5h)
-// Row 2 (y=9): Livestream(3w,7h) | Livecams(3w,7h) | Accidents(3w,7h) | MMDA(3w,7h)
-// Row 3 (y=16): WaterLevel(3w,6h)
+// New Layout: 12 columns
+// Upper area (y=0):
+//   Map (9w, 12h) — dominant 3/4 of upper area
+//   Right stack (3w): Livestream(3w,4h) + VolcanoCams(3w,4h) + Weather(3w,4h)
+// Lower area (y=12):
+//   News(3w,7h) | PhiVolcs(3w,7h) | Accidents(3w,7h) | MMDA(3w,7h)
+// Extra row (y=19):
+//   WaterLevel(4w,6h)
 const PANELS: PanelConfig[] = [
-  { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 5, h: 9, minW: 3, minH: 4 } },
-  { id: "news", title: "News", icon: "NEWS", component: NewsPanel, defaultLayout: { x: 5, y: 0, w: 4, h: 9, minW: 2, minH: 3 } },
-  { id: "weather", title: "Weather", icon: "WX", component: WeatherPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 } },
-  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 5, minW: 2, minH: 3 } },
-  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 0, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
-  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 3, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
-  { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 6, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
-  { id: "mmda", title: "MMDA", icon: "MMDA", component: MMDAPanel, defaultLayout: { x: 9, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
-  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 0, y: 16, w: 4, h: 6, minW: 2, minH: 3 } },
-  { id: "noah", title: "NOAH Hazards", icon: "NOAH", component: NOAHPanel, defaultLayout: { x: 4, y: 16, w: 4, h: 6, minW: 2, minH: 4 } },
+  { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 9, h: 12, minW: 4, minH: 6 } },
+  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 } },
+  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 4, minW: 2, minH: 3 } },
+  { id: "weather", title: "Weather", icon: "WX", component: WeatherPanel, defaultLayout: { x: 9, y: 8, w: 3, h: 4, minW: 2, minH: 3 } },
+  { id: "news", title: "News", icon: "NEWS", component: NewsPanel, defaultLayout: { x: 0, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
+  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 3, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
+  { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 6, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
+  { id: "mmda", title: "MMDA", icon: "MMDA", component: MMDAPanel, defaultLayout: { x: 9, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
+  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 0, y: 19, w: 4, h: 6, minW: 2, minH: 3 } },
 ];
 
 function getDefaultLayout() {

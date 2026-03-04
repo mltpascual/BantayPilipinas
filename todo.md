@@ -1,14 +1,20 @@
-# Livestream & Volcano Cam Update
+# Dashboard Redesign & Data Audit
 
-## Livestream Panel
-- [ ] Research working PH news YouTube livestream channel IDs
-- [ ] Find ABS-CBN, GMA, PTV, CNN PH working live stream URLs
-- [ ] Update LivestreamPanel.tsx with verified working streams
+## Layout Redesign
+- [ ] Map takes 3/4 upper-left area (dominant)
+- [ ] Livestream + Volcano Cams on right side
+- [ ] News panel below
+- [ ] Remove NOAH panel (data already on map)
 
-## Volcano Cams Panel (replacing Livecams)
-- [ ] Research PHIVOLCS volcano monitoring cameras
-- [ ] Research DOST volcano webcams
-- [ ] Find embeddable volcano cam sources (YouTube, RTSP, etc.)
-- [ ] Replace LivecamsPanel.tsx with VolcanoCamsPanel.tsx
-- [ ] Update Dashboard.tsx panel config
+## Data Audit
+- [ ] Check which panels use simulated vs real data
+- [ ] Fix any simulated panels with real sources
 
+## MMDA Panel
+- [ ] Research MMDA RSS feed or social media source
+- [ ] Replace current MMDA implementation with real data
+
+## Final
+- [ ] Test all panels
+- [ ] Push to GitHub
+- [ ] Save checkpoint
