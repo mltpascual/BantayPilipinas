@@ -21,8 +21,8 @@ import {
   getWaterLevelColor,
 } from "@/lib/feeds";
 
-// Free dark basemap style (CARTO Dark Matter — no token needed)
-const DARK_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+// Light basemap style (CARTO Voyager — clean white map like UP Project NOAH)
+const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
 // Critical facilities GeoJSON from NOAH S3
 const CRITICAL_FACILITIES = {
@@ -110,7 +110,7 @@ export default function MapPanel() {
 
     const map = new maplibregl.Map({
       container: mapRef.current,
-      style: DARK_STYLE,
+      style: MAP_STYLE,
       center: [121.774, 12.8797],
       zoom: 5.5,
       maxBounds: [[110, 2], [135, 22]],
@@ -177,15 +177,15 @@ export default function MapPanel() {
         new maplibregl.Popup({ className: "noah-popup", maxWidth: "280px" })
           .setLngLat(coords)
           .setHTML(`
-            <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#e5e7eb;">
+            <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                 <div style="background:${color};color:white;font-weight:800;font-size:18px;width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;">${mag.toFixed(1)}</div>
                 <div>
                   <div style="font-weight:700;font-size:13px;">${place}</div>
-                  <div style="font-size:10px;color:#9CA3AF;">${time}</div>
+                  <div style="font-size:10px;color:#6B7280;">${time}</div>
                 </div>
               </div>
-              <div style="font-size:10px;color:#9CA3AF;">
+              <div style="font-size:10px;color:#6B7280;">
                 Depth: ${f.properties?.depth || "N/A"} km • ${formatMagnitude(mag)}
               </div>
             </div>
@@ -306,7 +306,7 @@ export default function MapPanel() {
         font-size: 24px; cursor: pointer; animation: typhoon-spin 3s linear infinite;
         filter: drop-shadow(0 0 8px ${color});
       `;
-      el.textContent = "🌀";
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H3"/><path d="M18 8H6"/><path d="M19 12H9"/><path d="M16 16H5"/><path d="M21 20H3"/></svg>`;
 
       // Pulsing ring
       const ring = document.createElement("div");
@@ -322,25 +322,25 @@ export default function MapPanel() {
         maxWidth: "280px",
         offset: 20,
       }).setHTML(`
-        <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#e5e7eb;">
+        <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <span style="font-size:28px;filter:drop-shadow(0 0 6px ${color});">🌀</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 6px ${color});"><path d="M21 4H3"/><path d="M18 8H6"/><path d="M19 12H9"/><path d="M16 16H5"/><path d="M21 20H3"/></svg>
             <div>
               <div style="font-weight:700;font-size:14px;color:${color};">${tc.name}</div>
-              <div style="font-size:10px;color:#9CA3AF;">${category}</div>
+              <div style="font-size:10px;color:#6B7280;">${category}</div>
             </div>
           </div>
-          <div style="background:rgba(255,255,255,0.08);border-radius:6px;padding:8px;">
+          <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#9CA3AF;font-size:10px;">Wind Speed</span>
+              <span style="color:#6B7280;font-size:10px;">Wind Speed</span>
               <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${color};">${tc.windSpeed} km/h</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#9CA3AF;font-size:10px;">Alert Level</span>
+              <span style="color:#6B7280;font-size:10px;">Alert Level</span>
               <span style="background:${color};color:white;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;">${tc.alertLevel}</span>
             </div>
             <div style="display:flex;justify-content:space-between;">
-              <span style="color:#9CA3AF;font-size:10px;">Source</span>
+              <span style="color:#6B7280;font-size:10px;">Source</span>
               <span style="font-size:10px;">GDACS</span>
             </div>
           </div>
@@ -388,7 +388,7 @@ export default function MapPanel() {
         font-size: 11px; cursor: pointer;
         box-shadow: 0 0 8px ${color}88;
       `;
-      el.textContent = "🌊";
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>`;
 
       let thresholdHTML = "";
       if (station.alertWL || station.alarmWL || station.criticalWL) {
@@ -405,25 +405,25 @@ export default function MapPanel() {
         maxWidth: "260px",
         offset: 15,
       }).setHTML(`
-        <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#e5e7eb;">
+        <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span style="font-size:18px;">🌊</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
             <div>
               <div style="font-weight:700;font-size:14px;color:${color};">${station.name}</div>
-              <div style="font-size:10px;color:#9CA3AF;">PAGASA FFWS Station</div>
+              <div style="font-size:10px;color:#6B7280;">PAGASA FFWS Station</div>
             </div>
           </div>
-          <div style="background:rgba(255,255,255,0.08);border-radius:6px;padding:8px;">
+          <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#9CA3AF;font-size:10px;">Water Level</span>
+              <span style="color:#6B7280;font-size:10px;">Water Level</span>
               <span style="color:${color};font-weight:700;font-family:'JetBrains Mono',monospace;font-size:14px;">${station.currentWL}</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#9CA3AF;font-size:10px;">Status</span>
+              <span style="color:#6B7280;font-size:10px;">Status</span>
               <span style="background:${color};color:white;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;">${statusLabel}</span>
             </div>
             <div style="display:flex;justify-content:space-between;">
-              <span style="color:#9CA3AF;font-size:10px;">Updated</span>
+              <span style="color:#6B7280;font-size:10px;">Updated</span>
               <span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${station.timestamp}</span>
             </div>
           </div>
@@ -530,23 +530,23 @@ export default function MapPanel() {
         new maplibregl.Popup({ className: "noah-popup", maxWidth: "240px" })
           .setLngLat(e.lngLat)
           .setHTML(`
-            <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#e5e7eb;">
+            <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                 <div style="background:${levelColor};width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;">
-                  <span style="font-size:16px;">${hazardType === "flood" ? "🌊" : hazardType === "landslide" ? "⛰️" : "🌊"}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${hazardType === "flood" ? '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>' : hazardType === "landslide" ? '<path d="m8 3 4 8 5-5 5 15H2L8 3z"/>' : '<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>'}</svg>
                 </div>
                 <div>
                   <div style="font-weight:700;font-size:13px;">${typeLabel} Hazard</div>
-                  <div style="font-size:10px;color:#9CA3AF;">NOAH Philippines</div>
+                  <div style="font-size:10px;color:#6B7280;">NOAH Philippines</div>
                 </div>
               </div>
-              <div style="background:rgba(255,255,255,0.08);border-radius:6px;padding:8px;">
+              <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="color:#9CA3AF;font-size:10px;">Risk Level</span>
+                  <span style="color:#6B7280;font-size:10px;">Risk Level</span>
                   <span style="background:${levelColor};color:white;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;">${levelLabel}</span>
                 </div>
               </div>
-              <div style="font-size:9px;color:#9CA3AF;margin-top:4px;">
+              <div style="font-size:9px;color:#6B7280;margin-top:4px;">
                 Source: UPRI Project NOAH • 100-year return period
               </div>
             </div>
@@ -647,12 +647,12 @@ export default function MapPanel() {
           new maplibregl.Popup({ className: "noah-popup", maxWidth: "220px" })
             .setLngLat(coords)
             .setHTML(`
-              <div style="font-family:'Inter',sans-serif;font-size:12px;color:#e5e7eb;">
+              <div style="font-family:'Inter',sans-serif;font-size:12px;color:#1f2937;">
                 <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
-                  <span>🏥</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00D4FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><path d="M12 9v5"/><path d="M10 11h4"/><rect x="4" y="6" width="16" height="16" rx="2"/></svg>
                   <span style="font-weight:700;font-size:13px;color:#00D4FF;">${name}</span>
                 </div>
-                <div style="color:#9CA3AF;font-size:10px;">Critical Facility — Hospital</div>
+                <div style="color:#6B7280;font-size:10px;">Critical Facility — Hospital</div>
               </div>
             `)
             .addTo(map);
@@ -700,12 +700,12 @@ export default function MapPanel() {
           new maplibregl.Popup({ className: "noah-popup", maxWidth: "220px" })
             .setLngLat(coords)
             .setHTML(`
-              <div style="font-family:'Inter',sans-serif;font-size:12px;color:#e5e7eb;">
+              <div style="font-family:'Inter',sans-serif;font-size:12px;color:#1f2937;">
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span>🏫</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FCD116" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
                   <span style="font-weight:700;font-size:13px;color:#FCD116;">${name}</span>
                 </div>
-                <div style="color:#9CA3AF;font-size:10px;">Critical Facility — School</div>
+                <div style="color:#6B7280;font-size:10px;">Critical Facility — School</div>
               </div>
             `)
             .addTo(map);
@@ -761,7 +761,7 @@ export default function MapPanel() {
             style={showEarthquakes ? { color: "#FCD116", borderColor: "#FCD116" } : {}}
             title="Toggle earthquake markers"
           >
-            <span className="text-[11px]">🔴</span> EQ
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m2 12 4-4 3 6 4-8 3 6 4-4"/></svg> EQ
           </button>
           <button
             onClick={toggleTyphoons}
@@ -769,7 +769,7 @@ export default function MapPanel() {
             style={showTyphoons ? { color: "#FF6B35", borderColor: "#FF6B35" } : {}}
             title="Toggle typhoon tracker"
           >
-            <span className="text-[11px]">🌀</span> TC
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 4H3"/><path d="M18 8H6"/><path d="M19 12H9"/><path d="M16 16H5"/><path d="M21 20H3"/></svg> TC
           </button>
           <button
             onClick={toggleWaterLevels}
@@ -777,7 +777,7 @@ export default function MapPanel() {
             style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}}
             title="Toggle water level stations"
           >
-            <span className="text-[11px]">🌊</span> WL
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg> WL
           </button>
         </div>
 
@@ -790,11 +790,11 @@ export default function MapPanel() {
             title="Toggle NOAH Flood Hazard (Metro Manila)"
           >
             {hazardLoading.flood ? (
-              <span className="text-[11px] animate-spin">⏳</span>
+              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
             ) : (
-              <span className="text-[11px]">💧</span>
+              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
             )}
-            FLOOD
+            Flood
           </button>
           <button
             onClick={toggleLandslide}
@@ -803,11 +803,11 @@ export default function MapPanel() {
             title="Toggle NOAH Landslide Hazard (Metro Manila)"
           >
             {hazardLoading.landslide ? (
-              <span className="text-[11px] animate-spin">⏳</span>
+              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
             ) : (
-              <span className="text-[11px]">⛰️</span>
+              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
             )}
-            SLIDE
+            Slide
           </button>
           <button
             onClick={toggleStormSurge}
@@ -816,11 +816,11 @@ export default function MapPanel() {
             title="Toggle NOAH Storm Surge Hazard (Metro Manila)"
           >
             {hazardLoading.stormsurge ? (
-              <span className="text-[11px] animate-spin">⏳</span>
+              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
             ) : (
-              <span className="text-[11px]">🌊</span>
+              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
             )}
-            SURGE
+            Surge
           </button>
         </div>
 
@@ -832,7 +832,7 @@ export default function MapPanel() {
             style={showHospitals ? { color: "#00D4FF", borderColor: "#00D4FF" } : {}}
             title="Toggle NOAH Hospitals"
           >
-            <span className="text-[11px]">🏥</span> HOSP
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v5"/><path d="M10 11h4"/><rect x="4" y="6" width="16" height="16" rx="2"/></svg> Hosp
           </button>
           <button
             onClick={toggleSchools}
@@ -840,7 +840,7 @@ export default function MapPanel() {
             style={showSchools ? { color: "#FCD116", borderColor: "#FCD116" } : {}}
             title="Toggle NOAH Schools"
           >
-            <span className="text-[11px]">🏫</span> SCHOOL
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> School
           </button>
         </div>
       </div>
@@ -965,7 +965,7 @@ export default function MapPanel() {
         {(showFlood || showLandslide || showStormSurge) && (
           <div className="border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-0.5 mt-0.5">
             <span className="text-[#41B6E6] font-bold">NOAH</span>{" "}
-            <span className="text-[8px]">Metro Manila</span>
+            <span className="text-[8px]">Nationwide</span>
           </div>
         )}
       </div>

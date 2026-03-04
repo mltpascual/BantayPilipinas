@@ -18,10 +18,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_ICONS: Record<string, string> = {
-  normal: "🟢",
-  alert: "🟡",
-  alarm: "🟠",
-  critical: "🔴",
+  normal: "OK",
+  alert: "ALT",
+  alarm: "ALM",
+  critical: "CRT",
 };
 
 export default function WaterLevelPanel() {
@@ -63,7 +63,7 @@ export default function WaterLevelPanel() {
   return (
     <PanelWrapper
       title="Water Levels"
-      icon="🌊"
+      icon="WL"
       status={alertCount > 0 ? "alert" : "ok"}
       badge={
         alertCount > 0
@@ -92,7 +92,7 @@ export default function WaterLevelPanel() {
               if (count === 0) return null;
               return (
                 <div key={s} className="flex items-center gap-1">
-                  <span className="text-[9px]">{STATUS_ICONS[s]}</span>
+                  <span className="text-[7px] font-bold font-mono px-1 py-0.5 rounded" style={{ background: getWaterLevelColor(s) + '22', color: getWaterLevelColor(s) }}>{STATUS_ICONS[s]}</span>
                   <span
                     className="text-[9px] font-bold font-mono"
                     style={{ color: getWaterLevelColor(s) }}
@@ -109,7 +109,7 @@ export default function WaterLevelPanel() {
         <div className="flex-1 overflow-y-auto min-h-0 space-y-0.5 pr-0.5">
           {loading && (
             <div className="flex flex-col items-center justify-center h-full gap-2">
-              <div className="text-xl animate-pulse">🌊</div>
+              <div className="text-xs font-mono font-bold text-[oklch(0.50_0.01_260)] animate-pulse">LOADING</div>
               <div className="text-[10px] text-[oklch(0.45_0.01_260)] font-mono">
                 Loading water level data...
               </div>
@@ -118,7 +118,7 @@ export default function WaterLevelPanel() {
 
           {error && (
             <div className="flex flex-col items-center justify-center h-full gap-2">
-              <div className="text-xl">⚠️</div>
+              <div className="text-xs font-mono font-bold text-[#FF6B35]">ERROR</div>
               <div className="text-[10px] text-[oklch(0.45_0.01_260)] font-mono">
                 PAGASA FFWS unavailable
               </div>
@@ -135,7 +135,7 @@ export default function WaterLevelPanel() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[9px]">
+                    <span className="text-[7px] font-bold font-mono px-1 py-0.5 rounded" style={{ background: getWaterLevelColor(station.status) + '22', color: getWaterLevelColor(station.status) }}>
                       {STATUS_ICONS[station.status]}
                     </span>
                     <span className="text-[10px] font-semibold text-[oklch(0.85_0.005_260)] truncate">

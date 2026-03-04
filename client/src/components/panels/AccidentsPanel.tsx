@@ -25,30 +25,30 @@ export default function AccidentsPanel() {
   const getSeverityIcon = (title: string): { icon: string; color: string } => {
     const t = title.toLowerCase();
     if (t.includes("killed") || t.includes("died") || t.includes("dead") || t.includes("fatal"))
-      return { icon: "💀", color: "#CE1126" };
+      return { icon: "FATAL", color: "#CE1126" };
     if (t.includes("crash") || t.includes("collision") || t.includes("fire") || t.includes("explosion"))
-      return { icon: "🔥", color: "#FF6B35" };
+      return { icon: "FIRE", color: "#FF6B35" };
     if (t.includes("flood") || t.includes("storm") || t.includes("typhoon") || t.includes("landslide"))
-      return { icon: "🌊", color: "#0038A8" };
+      return { icon: "WX", color: "#0038A8" };
     if (t.includes("earthquake"))
-      return { icon: "🔴", color: "#CE1126" };
+      return { icon: "EQ", color: "#CE1126" };
     if (t.includes("traffic") || t.includes("mmda") || t.includes("road"))
-      return { icon: "🚗", color: "#FCD116" };
-    return { icon: "⚠️", color: "#FF6B35" };
+      return { icon: "ROAD", color: "#FCD116" };
+    return { icon: "ALERT", color: "#FF6B35" };
   };
 
   return (
-    <PanelWrapper title="Accidents & Incidents" icon="🚨" status={loading ? "idle" : items.length > 0 ? "live" : "active"}>
+    <PanelWrapper title="Accidents & Incidents" icon="INC" status={loading ? "idle" : items.length > 0 ? "live" : "active"}>
       {loading && items.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full gap-2">
-          <div className="text-2xl animate-pulse">🔍</div>
+          <div className="text-xs font-mono font-bold text-[oklch(0.50_0.01_260)] animate-pulse">SCANNING</div>
           <div className="text-[oklch(0.50_0.01_260)] text-xs font-mono">
             Scanning feeds...
           </div>
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full gap-2">
-          <div className="text-2xl">✅</div>
+          <div className="text-xs font-mono font-bold text-[#22C55E]">CLEAR</div>
           <div className="text-[oklch(0.40_0.01_260)] text-xs font-mono text-center">
             No incidents detected<br />
             <span className="text-[9px]">Monitoring GMA Metro & Inquirer</span>
@@ -71,7 +71,7 @@ export default function AccidentsPanel() {
                 style={{ borderLeft: `3px solid ${color}` }}
               >
                 <div className="flex items-start gap-1.5">
-                  <span className="text-xs shrink-0 mt-0.5">{icon}</span>
+                  <span className="text-[7px] font-bold font-mono shrink-0 mt-0.5 px-1 py-0.5 rounded" style={{ background: `${color}22`, color }}>{icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-[oklch(0.85_0.005_260)] leading-snug group-hover:text-white transition-colors line-clamp-2">
                       {item.title}

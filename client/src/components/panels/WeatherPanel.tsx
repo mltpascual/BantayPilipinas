@@ -36,7 +36,7 @@ export default function WeatherPanel() {
   };
 
   return (
-    <PanelWrapper title="Weather" icon="🌤️" status={loading ? "idle" : "active"}>
+    <PanelWrapper title="Weather" icon="WX" status={loading ? "idle" : "active"}>
       {loading && weather.length === 0 ? (
         <div className="flex items-center justify-center h-full text-[oklch(0.50_0.01_260)] text-xs font-mono">
           Loading weather...
@@ -50,7 +50,7 @@ export default function WeatherPanel() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-base">{getWeatherIcon(w.weathercode, w.is_day)}</span>
+                  <span className="text-[8px] font-bold font-mono px-1.5 py-1 rounded bg-[oklch(0.18_0.02_260)] text-[oklch(0.65_0.01_260)]">{getWeatherIcon(w.weathercode, w.is_day)}</span>
                   <div>
                     <div className="text-[11px] font-semibold text-[oklch(0.88_0.005_260)]">{w.city}</div>
                     <div className="text-[9px] text-[oklch(0.50_0.01_260)]">
@@ -66,7 +66,7 @@ export default function WeatherPanel() {
                     {w.temperature}°
                   </div>
                   <div className="text-[8px] text-[oklch(0.45_0.01_260)] font-mono">
-                    💨 {w.windspeed} km/h {getWindDir(w.winddirection)}
+                    {w.windspeed} km/h {getWindDir(w.winddirection)}
                   </div>
                 </div>
               </div>

@@ -25,15 +25,15 @@ export default function PhiVolcsPanel() {
   }, []);
 
   const eventIcons: Record<string, string> = {
-    cyclone: "🌀",
-    earthquake: "🔴",
-    flood: "🌊",
-    volcano: "🌋",
-    unknown: "⚠️",
+    cyclone: "TC",
+    earthquake: "EQ",
+    flood: "FL",
+    volcano: "VL",
+    unknown: "--",
   };
 
   return (
-    <PanelWrapper title="PhiVolcs / Disasters" icon="🌋" status={loading ? "idle" : "active"}>
+    <PanelWrapper title="PhiVolcs / Disasters" icon="PV" status={loading ? "idle" : "active"}>
       <div className="flex flex-col h-full gap-1.5">
         <div className="flex gap-1 shrink-0">
           <button
@@ -112,7 +112,7 @@ export default function PhiVolcsPanel() {
                 </div>
               ) : disasters.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-24 gap-1">
-                  <span className="text-lg">✅</span>
+                  <span className="text-xs font-mono font-bold text-[#22C55E]">CLEAR</span>
                   <div className="text-[oklch(0.40_0.01_260)] text-[10px] font-mono text-center">
                     No active GDACS alerts<br />for PH region
                   </div>
@@ -127,7 +127,7 @@ export default function PhiVolcsPanel() {
                     className="block p-1.5 rounded hover:bg-[oklch(0.18_0.02_260)] transition-colors group"
                   >
                     <div className="flex items-start gap-2">
-                      <span className="text-sm shrink-0">{eventIcons[item.eventType] || "⚠️"}</span>
+                      <span className="text-[8px] font-bold font-mono shrink-0 px-1 py-0.5 rounded bg-[oklch(0.18_0.02_260)] text-[oklch(0.60_0.01_260)]">{eventIcons[item.eventType] || "--"}</span>
                       <div className="flex-1 min-w-0">
                         <div className="text-[11px] text-[oklch(0.82_0.005_260)] leading-snug line-clamp-2 group-hover:text-white transition-colors">
                           {item.title}

@@ -63,7 +63,7 @@ export default function MMDAPanel() {
   }, []);
 
   return (
-    <PanelWrapper title="MMDA" icon="🚦" status="active">
+    <PanelWrapper title="MMDA" icon="MMDA" status="active">
       <div className="flex flex-col h-full gap-1.5">
         {/* Tabs */}
         <div className="flex gap-1 shrink-0">
@@ -111,7 +111,7 @@ export default function MMDAPanel() {
                 </div>
               ) : news.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-24 gap-1">
-                  <span className="text-lg">🚗</span>
+                  <span className="text-xs font-mono font-bold text-[#FCD116]">CLEAR</span>
                   <div className="text-[oklch(0.40_0.01_260)] text-[10px] font-mono text-center">
                     No MMDA/traffic news found
                   </div>

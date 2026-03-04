@@ -8,7 +8,7 @@ import PanelWrapper from "../PanelWrapper";
 const HAZARD_TYPES = [
   {
     id: "flood",
-    icon: "🌊",
+    icon: "FLOOD",
     label: "Flood",
     color: "#3B82F6",
     desc: "100-year rain return period flood inundation maps",
@@ -20,7 +20,7 @@ const HAZARD_TYPES = [
   },
   {
     id: "landslide",
-    icon: "⛰️",
+    icon: "SLIDE",
     label: "Landslide",
     color: "#F59E0B",
     desc: "Shallow & structurally-controlled landslide susceptibility",
@@ -32,7 +32,7 @@ const HAZARD_TYPES = [
   },
   {
     id: "stormsurge",
-    icon: "🌪️",
+    icon: "SURGE",
     label: "Storm Surge",
     color: "#EF4444",
     desc: "Storm surge advisory maps based on 721 historical cyclones",
@@ -47,28 +47,28 @@ const HAZARD_TYPES = [
 
 const QUICK_LINKS = [
   {
-    icon: "🗺️",
+    icon: "MAP",
     label: "NOAH Studio",
     desc: "Full hazard map viewer",
     url: "https://noah.up.edu.ph/noah-studio",
     primary: true,
   },
   {
-    icon: "🔍",
+    icon: "SEARCH",
     label: "Know Your Hazards",
     desc: "Search your area's risk",
     url: "https://noah.up.edu.ph/know-your-hazards",
     primary: false,
   },
   {
-    icon: "🎯",
+    icon: "TARGET",
     label: "HazardHunter",
     desc: "DOST-PHIVOLCS risk tool",
     url: "https://hazardhunter.georisk.gov.ph/",
     primary: false,
   },
   {
-    icon: "📊",
+    icon: "DATA",
     label: "GeoAnalytics",
     desc: "Risk analysis & visualization",
     url: "https://geoanalytics.georisk.gov.ph/",
@@ -83,7 +83,7 @@ export default function NOAHPanel() {
   const selectedHazard = HAZARD_TYPES.find((h) => h.id === activeHazard)!;
 
   return (
-    <PanelWrapper title="NOAH Hazards" icon="🛡️" status="live" badge="UP NOAH">
+    <PanelWrapper title="NOAH Hazards" icon="NOAH" status="live" badge="UP NOAH">
       {/* Tabs */}
       <div className="flex gap-1 mb-2">
         <button
@@ -122,7 +122,7 @@ export default function NOAHPanel() {
                     : "bg-[oklch(0.10_0.01_260)] hover:bg-[oklch(0.14_0.02_260)]"
                 }`}
               >
-                <span className="text-base">{h.icon}</span>
+                <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded" style={{ background: h.color + '22', color: h.color }}>{h.icon}</span>
                 <span
                   className={`text-[9px] font-bold tracking-wide ${
                     activeHazard === h.id ? "text-white" : "text-[oklch(0.50_0.01_260)]"
@@ -137,7 +137,7 @@ export default function NOAHPanel() {
           {/* Selected hazard detail */}
           <div className="bg-[oklch(0.10_0.01_260)] rounded-md p-2.5 border border-[oklch(0.16_0.02_260)]">
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-lg">{selectedHazard.icon}</span>
+              <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded" style={{ background: selectedHazard.color + '22', color: selectedHazard.color }}>{selectedHazard.icon}</span>
               <div>
                 <div className="text-[11px] font-bold text-white">{selectedHazard.label} Hazard</div>
                 <div className="text-[9px] text-[oklch(0.50_0.01_260)] leading-tight">{selectedHazard.desc}</div>
@@ -172,7 +172,6 @@ export default function NOAHPanel() {
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 py-2 rounded-md bg-gradient-to-r from-[#0038A8] to-[#0050d0] hover:from-[#004cc4] hover:to-[#0060e0] text-white text-[11px] font-bold tracking-wide transition-all shadow-lg shadow-[#0038A8]/20 hover:shadow-[#0038A8]/40"
           >
-            <span>🗺️</span>
             <span>Open NOAH Studio</span>
             <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -200,7 +199,7 @@ export default function NOAHPanel() {
                   : "bg-[oklch(0.10_0.01_260)] border border-[oklch(0.16_0.02_260)] hover:border-[oklch(0.25_0.03_260)]"
               }`}
             >
-              <span className="text-lg">{link.icon}</span>
+              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-[oklch(0.18_0.02_260)] text-[oklch(0.60_0.01_260)]">{link.icon}</span>
               <div className="flex-1">
                 <div className="text-[11px] font-bold text-white group-hover:text-[#60A5FA] transition-colors">
                   {link.label}
@@ -220,7 +219,7 @@ export default function NOAHPanel() {
 
           {/* Additional info */}
           <div className="bg-[oklch(0.10_0.01_260)] rounded-md p-2.5 border border-[oklch(0.16_0.02_260)] mt-1">
-            <div className="text-[9px] font-bold text-[#FCD116] mb-1">💡 About Project NOAH</div>
+            <div className="text-[9px] font-bold text-[#FCD116] mb-1">About Project NOAH</div>
             <div className="text-[9px] text-[oklch(0.50_0.01_260)] leading-relaxed">
               Nationwide Operational Assessment of Hazards — the Philippines' primary disaster risk reduction program by UP Resilience Institute. Covers flood, landslide, and storm surge hazard mapping for all 81 provinces using LiDAR, hydrological modeling, and satellite imagery.
             </div>
@@ -234,8 +233,7 @@ export default function NOAHPanel() {
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded bg-[oklch(0.12_0.01_260)] border border-[oklch(0.18_0.02_260)] hover:border-[oklch(0.28_0.03_260)] transition-all"
             >
-              <span className="text-[10px]">🍎</span>
-              <span className="text-[9px] font-semibold text-[oklch(0.60_0.01_260)]">App Store</span>
+              <span className="text-[9px] font-semibold text-[oklch(0.60_0.01_260)]">iOS App</span>
             </a>
             <a
               href="https://play.google.com/store/apps/details?id=ph.edu.up.noah"
@@ -243,8 +241,7 @@ export default function NOAHPanel() {
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded bg-[oklch(0.12_0.01_260)] border border-[oklch(0.18_0.02_260)] hover:border-[oklch(0.28_0.03_260)] transition-all"
             >
-              <span className="text-[10px]">🤖</span>
-              <span className="text-[9px] font-semibold text-[oklch(0.60_0.01_260)]">Google Play</span>
+              <span className="text-[9px] font-semibold text-[oklch(0.60_0.01_260)]">Android App</span>
             </a>
           </div>
         </div>

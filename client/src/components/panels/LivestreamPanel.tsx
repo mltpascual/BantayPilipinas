@@ -45,7 +45,7 @@ export default function LivestreamPanel() {
     : CHANNELS[active].embedUrl;
 
   return (
-    <PanelWrapper title="Livestream" icon="📺" status="live">
+    <PanelWrapper title="Livestream" icon="LIVE" status="live">
       <div className="flex flex-col h-full gap-2">
         {/* Channel tabs */}
         <div className="flex gap-1 shrink-0 flex-wrap">

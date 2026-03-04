@@ -344,16 +344,16 @@ export async function fetchGDACS(): Promise<GDACSItem[]> {
 }
 
 export function getWeatherIcon(code: number, isDay: number): string {
-  if (code === 0) return isDay ? "☀️" : "🌙";
-  if (code <= 3) return isDay ? "⛅" : "☁️";
-  if (code <= 48) return "🌫️";
-  if (code <= 57) return "🌧️";
-  if (code <= 67) return "🌧️";
-  if (code <= 77) return "🌨️";
-  if (code <= 82) return "🌧️";
-  if (code <= 86) return "🌨️";
-  if (code >= 95) return "⛈️";
-  return "☁️";
+  if (code === 0) return isDay ? "CLR" : "NT";
+  if (code <= 3) return isDay ? "PCL" : "OVC";
+  if (code <= 48) return "FOG";
+  if (code <= 57) return "DRZ";
+  if (code <= 67) return "RN";
+  if (code <= 77) return "SNW";
+  if (code <= 82) return "HVY";
+  if (code <= 86) return "SNW";
+  if (code >= 95) return "STM";
+  return "OVC";
 }
 
 export function getWeatherDescription(code: number): string {

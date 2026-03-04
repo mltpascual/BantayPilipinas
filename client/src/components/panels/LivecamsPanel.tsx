@@ -31,7 +31,7 @@ export default function LivecamsPanel() {
   const [selected, setSelected] = useState(0);
 
   return (
-    <PanelWrapper title="Livecams" icon="📷" status="live">
+    <PanelWrapper title="Livecams" icon="CAM" status="live">
       <div className="flex flex-col h-full gap-1.5">
         {/* Main view */}
         <div className="flex-1 relative rounded overflow-hidden bg-black min-h-0">

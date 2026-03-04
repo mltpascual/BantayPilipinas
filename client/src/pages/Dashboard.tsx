@@ -29,16 +29,16 @@ interface PanelConfig {
 // Row 2 (y=9): Livestream(3w,7h) | Livecams(3w,7h) | Accidents(3w,7h) | MMDA(3w,7h)
 // Row 3 (y=16): WaterLevel(3w,6h)
 const PANELS: PanelConfig[] = [
-  { id: "map", title: "Map", icon: "🗺️", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 5, h: 9, minW: 3, minH: 4 } },
-  { id: "news", title: "News", icon: "📰", component: NewsPanel, defaultLayout: { x: 5, y: 0, w: 4, h: 9, minW: 2, minH: 3 } },
-  { id: "weather", title: "Weather", icon: "🌤️", component: WeatherPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 } },
-  { id: "phivolcs", title: "PhiVolcs", icon: "🌋", component: PhiVolcsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 5, minW: 2, minH: 3 } },
-  { id: "livestream", title: "Livestream", icon: "📺", component: LivestreamPanel, defaultLayout: { x: 0, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
-  { id: "livecams", title: "Livecams", icon: "📷", component: LivecamsPanel, defaultLayout: { x: 3, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
-  { id: "accidents", title: "Accidents", icon: "🚨", component: AccidentsPanel, defaultLayout: { x: 6, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
-  { id: "mmda", title: "MMDA", icon: "🚦", component: MMDAPanel, defaultLayout: { x: 9, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
-  { id: "waterlevel", title: "Water Levels", icon: "🌊", component: WaterLevelPanel, defaultLayout: { x: 0, y: 16, w: 4, h: 6, minW: 2, minH: 3 } },
-  { id: "noah", title: "NOAH Hazards", icon: "🛡️", component: NOAHPanel, defaultLayout: { x: 4, y: 16, w: 4, h: 6, minW: 2, minH: 4 } },
+  { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 5, h: 9, minW: 3, minH: 4 } },
+  { id: "news", title: "News", icon: "NEWS", component: NewsPanel, defaultLayout: { x: 5, y: 0, w: 4, h: 9, minW: 2, minH: 3 } },
+  { id: "weather", title: "Weather", icon: "WX", component: WeatherPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 } },
+  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 5, minW: 2, minH: 3 } },
+  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 0, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
+  { id: "livecams", title: "Livecams", icon: "CAM", component: LivecamsPanel, defaultLayout: { x: 3, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
+  { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 6, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
+  { id: "mmda", title: "MMDA", icon: "MMDA", component: MMDAPanel, defaultLayout: { x: 9, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
+  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 0, y: 16, w: 4, h: 6, minW: 2, minH: 3 } },
+  { id: "noah", title: "NOAH Hazards", icon: "NOAH", component: NOAHPanel, defaultLayout: { x: 4, y: 16, w: 4, h: 6, minW: 2, minH: 4 } },
 ];
 
 function getDefaultLayout() {
@@ -148,7 +148,7 @@ export default function Dashboard() {
               <button
                 key={p.id}
                 onClick={() => togglePanel(p.id)}
-                className={`text-sm w-7 h-7 flex items-center justify-center rounded transition-all ${
+                className={`text-[7px] font-bold font-mono tracking-wider w-auto px-1.5 h-7 flex items-center justify-center rounded transition-all ${
                   visiblePanels.has(p.id)
                     ? "bg-[oklch(0.20_0.03_260)] text-[oklch(0.85_0.005_260)] shadow-inner"
                     : "bg-transparent text-[oklch(0.30_0.01_260)] hover:text-[oklch(0.55_0.01_260)]"

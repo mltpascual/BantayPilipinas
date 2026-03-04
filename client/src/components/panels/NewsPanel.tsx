@@ -30,10 +30,10 @@ export default function NewsPanel() {
   }, []);
 
   return (
-    <PanelWrapper title="News" icon="📰" status={loading ? "idle" : "active"}>
+    <PanelWrapper title="News" icon="NEWS" status={loading ? "idle" : "active"}>
       {loading && news.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full gap-2">
-          <div className="text-2xl animate-pulse">📡</div>
+          <div className="text-xs font-mono font-bold text-[oklch(0.50_0.01_260)] animate-pulse">LOADING</div>
           <div className="text-[oklch(0.50_0.01_260)] text-xs font-mono">
             Loading feeds...
           </div>
