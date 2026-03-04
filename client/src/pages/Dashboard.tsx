@@ -34,7 +34,7 @@ const PANELS: PanelConfig[] = [
   { id: "weather", title: "Weather", icon: "WX", component: WeatherPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 } },
   { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 5, minW: 2, minH: 3 } },
   { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 0, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
-  { id: "livecams", title: "Livecams", icon: "CAM", component: LivecamsPanel, defaultLayout: { x: 3, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
+  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 3, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
   { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 6, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "mmda", title: "MMDA", icon: "MMDA", component: MMDAPanel, defaultLayout: { x: 9, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 0, y: 16, w: 4, h: 6, minW: 2, minH: 3 } },

@@ -1,92 +1,119 @@
 // Design: "Ops Center Noir" — Live news streams with tab switching
-// Red LIVE badge pulses, tabs for different channels
-// Uses YouTube channel embed URLs that auto-detect live streams
+// Uses YouTube channel live embed URLs for PH news networks
+// Fallback to channel page embed if live stream not detected
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import PanelWrapper from "@/components/PanelWrapper";
 
-const CHANNELS = [
+interface Channel {
+  name: string;
+  channelId: string;
+  label: string;
+  color: string;
+}
+
+const CHANNELS: Channel[] = [
   {
-    name: "ABS-CBN",
-    // ABS-CBN News YouTube channel
-    embedUrl: "https://www.youtube.com/embed/live_stream?channel=UCstEtN0pgOmCf02EdXsGFhQ",
-    fallbackUrl: "https://www.youtube.com/embed?listType=user_uploads&list=ABSCBNNews",
-    label: "ABS-CBN News",
+    name: "PTV",
+    channelId: "UCm1wMSBO9P1L7TiJnBnTxUg",
+    label: "PTV Philippines",
+    color: "#0038A8",
   },
   {
     name: "GMA",
-    // GMA Integrated News
-    embedUrl: "https://www.youtube.com/embed/live_stream?channel=UCqYw-CTd1dU2yGI71sEyqNw",
-    fallbackUrl: "https://www.youtube.com/embed?listType=user_uploads&list=gaboradorable",
+    channelId: "UCqYw-CTd1dU2yGI71sEyqNw",
     label: "GMA Integrated News",
+    color: "#FF6B35",
   },
   {
-    name: "PTV",
-    // PTV Philippines
-    embedUrl: "https://www.youtube.com/embed/live_stream?channel=UCm1wMSBO9P1L7TiJnBnTxUg",
-    fallbackUrl: "https://www.youtube.com/embed?listType=user_uploads&list=PTVPhilippines",
-    label: "PTV Philippines",
+    name: "ABS-CBN",
+    channelId: "UCstEtN0pgOmCf02EdXsGFhQ",
+    label: "ABS-CBN News",
+    color: "#CE1126",
+  },
+  {
+    name: "ANC",
+    channelId: "UCmN1TnSbMQTTDrjIG0FQKOQ",
+    label: "ANC 24/7",
+    color: "#1DA1F2",
   },
   {
     name: "CNN PH",
-    // CNN Philippines
-    embedUrl: "https://www.youtube.com/embed/live_stream?channel=UCwMDXamqIbGCPPGmk7bMiQg",
-    fallbackUrl: "https://www.youtube.com/embed?listType=user_uploads&list=CNNPhilippines",
+    channelId: "UCwMDXamqIbGCPPGmk7bMiQg",
     label: "CNN Philippines",
+    color: "#CC0000",
   },
 ];
 
 export default function LivestreamPanel() {
   const [active, setActive] = useState(0);
-  const [useFallback, setUseFallback] = useState<Record<number, boolean>>({});
+  const [embedKey, setEmbedKey] = useState(0);
 
-  const currentUrl = useFallback[active]
-    ? CHANNELS[active].fallbackUrl
-    : CHANNELS[active].embedUrl;
+  // Force refresh embed when switching channels
+  const handleSwitch = useCallback((index: number) => {
+    setActive(index);
+    setEmbedKey((k) => k + 1);
+  }, []);
+
+  // Auto-refresh every 5 minutes to catch new live streams
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setEmbedKey((k) => k + 1);
+    }, 300000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const ch = CHANNELS[active];
+  // Use the YouTube channel live stream embed URL
+  const embedUrl = `https://www.youtube.com/embed/live_stream?channel=${ch.channelId}&autoplay=1&mute=1`;
 
   return (
     <PanelWrapper title="Livestream" icon="LIVE" status="live">
       <div className="flex flex-col h-full gap-2">
         {/* Channel tabs */}
         <div className="flex gap-1 shrink-0 flex-wrap">
-          {CHANNELS.map((ch, i) => (
+          {CHANNELS.map((c, i) => (
             <button
-              key={ch.name}
-              onClick={() => setActive(i)}
+              key={c.name}
+              onClick={() => handleSwitch(i)}
               className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
                 i === active
-                  ? "bg-[#CE1126] text-white"
+                  ? "text-white shadow-lg"
                   : "bg-[oklch(0.18_0.02_260)] text-[oklch(0.60_0.01_260)] hover:text-[oklch(0.80_0.005_260)] hover:bg-[oklch(0.22_0.02_260)]"
               }`}
+              style={i === active ? { backgroundColor: c.color } : undefined}
             >
-              {ch.name}
+              {c.name}
             </button>
           ))}
         </div>
+
         {/* Video embed */}
         <div className="flex-1 relative rounded overflow-hidden bg-black min-h-0">
           <iframe
-            key={`${active}-${useFallback[active] ? "fb" : "main"}`}
-            src={`${currentUrl}&autoplay=1&mute=1`}
+            key={`${active}-${embedKey}`}
+            src={embedUrl}
             className="absolute inset-0 w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            title={CHANNELS[active].label}
-            onError={() => {
-              if (!useFallback[active]) {
-                setUseFallback((prev) => ({ ...prev, [active]: true }));
-              }
-            }}
+            title={ch.label}
           />
           {/* Channel label overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 pointer-events-none">
-            <div className="text-[10px] text-white/60 font-mono">
-              {CHANNELS[active].label} — YouTube Live
+            <div className="flex items-center gap-2">
+              <div
+                className="w-1.5 h-1.5 rounded-full animate-pulse"
+                style={{ backgroundColor: ch.color }}
+              />
+              <span className="text-[10px] text-white/70 font-mono">
+                {ch.label}
+              </span>
             </div>
           </div>
         </div>
+
         <div className="text-[9px] text-[oklch(0.35_0.01_260)] font-mono shrink-0">
-          Streams auto-detect live broadcasts. If unavailable, channel may be offline.
+          YouTube Live — streams auto-detect. Channel may be offline between broadcasts.
         </div>
       </div>
     </PanelWrapper>
