@@ -1,8 +1,11 @@
 // PH Mission Control — Map Panel (MapLibre GL JS)
-// Uses free CARTO dark basemap tiles — no API token required
+// Uses free CARTO Voyager basemap tiles — no API token required
 // Earthquake markers from USGS, Typhoon tracker from GDACS, Water level stations from PAGASA
 // NOAH critical facilities (Hospitals, Schools) from S3 GeoJSON
 // NOAH Hazard overlays: Flood, Landslide, Storm Surge (Nationwide 81 provinces) from simplified GeoJSON
+// Volcano Hazard Zones: PDZ/EDZ for 12 major Philippine volcanoes from PHIVOLCS data
+// RainViewer Weather Radar overlay (real-time precipitation)
+// Province search/zoom with auto-enable hazard overlays
 // Toggle controls for each layer type
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -20,6 +23,7 @@ import {
   getTyphoonCategory,
   getWaterLevelColor,
 } from "@/lib/feeds";
+import { searchProvinces, type Province } from "@/lib/provinces";
 
 // Light basemap style (CARTO Voyager — clean white map like UP Project NOAH)
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
@@ -37,25 +41,28 @@ const NOAH_HAZARDS = {
   stormsurge: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/stormsurge_nationwide_3a31e988.geojson",
 };
 
+// Volcano Hazard Zones GeoJSON (12 major volcanoes with PDZ/EDZ)
+const VOLCANO_HAZARDS = "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/volcano_hazard_zones_28e9197a.geojson";
+
+// RainViewer API endpoint for radar timestamps
+const RAINVIEWER_API = "https://api.rainviewer.com/public/weather-maps.json";
+
 // Hazard color schemes matching NOAH Studio
-// Flood: Var property (1=Low, 2=Medium, 3=High)
-// Landslide: LH property (1=Low, 2=Medium, 3=High)
-// Storm Surge: HAZ property (1=Low, 2=Medium, 3=High)
 const HAZARD_COLORS = {
   flood: {
-    1: "rgba(65, 182, 230, 0.45)",   // Low - light blue
-    2: "rgba(30, 120, 220, 0.55)",    // Medium - blue
-    3: "rgba(10, 50, 168, 0.65)",     // High - dark blue
+    1: "rgba(65, 182, 230, 0.45)",
+    2: "rgba(30, 120, 220, 0.55)",
+    3: "rgba(10, 50, 168, 0.65)",
   },
   landslide: {
-    1: "rgba(252, 209, 22, 0.45)",    // Low - yellow
-    2: "rgba(242, 153, 74, 0.55)",    // Medium - orange
-    3: "rgba(206, 17, 38, 0.65)",     // High - red
+    1: "rgba(252, 209, 22, 0.45)",
+    2: "rgba(242, 153, 74, 0.55)",
+    3: "rgba(206, 17, 38, 0.65)",
   },
   stormsurge: {
-    1: "rgba(180, 130, 255, 0.40)",   // Low - light purple
-    2: "rgba(220, 80, 180, 0.50)",    // Medium - magenta
-    3: "rgba(206, 17, 38, 0.60)",     // High - red
+    1: "rgba(180, 130, 255, 0.40)",
+    2: "rgba(220, 80, 180, 0.50)",
+    3: "rgba(206, 17, 38, 0.60)",
   },
 };
 
@@ -101,8 +108,19 @@ export default function MapPanel() {
   const [showFlood, setShowFlood] = useState(false);
   const [showLandslide, setShowLandslide] = useState(false);
   const [showStormSurge, setShowStormSurge] = useState(false);
+  const [showVolcano, setShowVolcano] = useState(false);
+  const [showRadar, setShowRadar] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [hazardLoading, setHazardLoading] = useState<Record<string, boolean>>({});
+
+  // Province search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Province[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Radar state
+  const radarTimestampRef = useRef<string>("");
 
   // Initialize MapLibre GL map
   useEffect(() => {
@@ -118,8 +136,6 @@ export default function MapPanel() {
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
-    // Attribution is rendered manually below zoom controls — hide default
-    // map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
     map.on("load", () => {
       // Add earthquake GeoJSON source (empty initially)
@@ -187,7 +203,7 @@ export default function MapPanel() {
                 </div>
               </div>
               <div style="font-size:10px;color:#6B7280;">
-                Depth: ${f.properties?.depth || "N/A"} km • ${formatMagnitude(mag)}
+                Depth: ${f.properties?.depth || "N/A"} km | ${formatMagnitude(mag)}
               </div>
             </div>
           `)
@@ -290,199 +306,129 @@ export default function MapPanel() {
     if (!mapReady || !mapInstance.current) return;
     const map = mapInstance.current;
 
-    // Remove old typhoon markers
+    // Clear existing markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
     if (!showTyphoons) return;
 
-    typhoons.forEach((tc) => {
-      const color = getTyphoonColor(tc.alertLevel, tc.windSpeed);
-      const category = getTyphoonCategory(tc.windSpeed);
+    typhoons.forEach((t) => {
+      const color = getTyphoonColor(t.alertLevel, t.windSpeed);
+      const cat = getTyphoonCategory(t.windSpeed);
 
-      // Animated typhoon marker
       const el = document.createElement("div");
-      el.style.cssText = `
-        width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-        font-size: 24px; cursor: pointer; animation: typhoon-spin 3s linear infinite;
-        filter: drop-shadow(0 0 8px ${color});
-      `;
-      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H3"/><path d="M18 8H6"/><path d="M19 12H9"/><path d="M16 16H5"/><path d="M21 20H3"/></svg>`;
-
-      // Pulsing ring
-      const ring = document.createElement("div");
-      ring.style.cssText = `
-        position: absolute; width: 50px; height: 50px; border-radius: 50%;
-        border: 2px solid ${color}; opacity: 0.5; animation: typhoon-pulse 2s ease-out infinite;
-        pointer-events: none;
-      `;
-      el.appendChild(ring);
-
-      const popup = new maplibregl.Popup({
-        className: "noah-popup",
-        maxWidth: "280px",
-        offset: 20,
-      }).setHTML(`
-        <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 6px ${color});"><path d="M21 4H3"/><path d="M18 8H6"/><path d="M19 12H9"/><path d="M16 16H5"/><path d="M21 20H3"/></svg>
-            <div>
-              <div style="font-weight:700;font-size:14px;color:${color};">${tc.name}</div>
-              <div style="font-size:10px;color:#6B7280;">${category}</div>
-            </div>
-          </div>
-          <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#6B7280;font-size:10px;">Wind Speed</span>
-              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${color};">${tc.windSpeed} km/h</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#6B7280;font-size:10px;">Alert Level</span>
-              <span style="background:${color};color:white;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;">${tc.alertLevel}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;">
-              <span style="color:#6B7280;font-size:10px;">Source</span>
-              <span style="font-size:10px;">GDACS</span>
-            </div>
-          </div>
-          <a href="${tc.link}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:6px;color:#0038A8;font-size:10px;text-decoration:underline;">View on GDACS →</a>
-        </div>
-      `);
+      el.innerHTML = `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px ${color};">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21 4H3M18 8H6M19 12H9M16 16H5M21 20H3"/></svg>
+      </div>`;
 
       const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([tc.lon, tc.lat])
-        .setPopup(popup)
+        .setLngLat([t.lon, t.lat])
+        .setPopup(
+          new maplibregl.Popup({ className: "noah-popup", maxWidth: "280px" }).setHTML(`
+            <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="background:${color};width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 4H3M18 8H6M19 12H9M16 16H5M21 20H3"/></svg>
+                </div>
+                <div>
+                  <div style="font-weight:700;font-size:13px;">${t.title}</div>
+                  <div style="font-size:10px;color:#6B7280;">${cat}</div>
+                </div>
+              </div>
+              <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;font-size:11px;">
+                <div>Category: <strong>${t.category}</strong></div>
+                <div>Wind: ${t.windSpeed} km/h</div>
+                <div style="font-size:10px;color:#6B7280;margin-top:4px;">Alert: ${t.alertLevel}</div>
+              </div>
+            </div>
+          `)
+        )
         .addTo(map);
 
       markersRef.current.push(marker);
     });
   }, [typhoons, showTyphoons, mapReady]);
 
-  // Render water level station markers
+  // Render water level markers
   useEffect(() => {
     if (!mapReady || !mapInstance.current) return;
     const map = mapInstance.current;
 
-    // Remove old WL markers
-    document.querySelectorAll(".wl-marker").forEach((el) => el.remove());
+    // Remove existing water level markers (tagged ones)
+    const existingWL = markersRef.current.filter(m => (m as any)._isWaterLevel);
+    existingWL.forEach(m => m.remove());
+    markersRef.current = markersRef.current.filter(m => !(m as any)._isWaterLevel);
 
-    if (!showWaterLevels || waterLevels.length === 0) return;
+    if (!showWaterLevels) return;
 
-    waterLevels.forEach((station) => {
-      const color = getWaterLevelColor(station.status);
-      const wl = parseFloat(station.currentWL);
-      const statusLabel =
-        (station.criticalWL !== null && wl >= station.criticalWL)
-          ? "CRITICAL"
-          : (station.alarmWL !== null && wl >= station.alarmWL)
-          ? "ALARM"
-          : (station.alertWL !== null && wl >= station.alertWL)
-          ? "ALERT"
-          : "NORMAL";
+    waterLevels.forEach((st) => {
+      if (!st.lat || !st.lon) return;
+      const color = getWaterLevelColor(st.status);
+      const wl = parseFloat(st.currentWL) || 0;
+      const status = st.status === "critical" ? "CRITICAL" :
+                     st.status === "alarm" ? "ALARM" :
+                     st.status === "alert" ? "ALERT" : "Normal";
 
       const el = document.createElement("div");
-      el.className = "wl-marker";
-      el.style.cssText = `
-        width: 22px; height: 22px; border-radius: 50%;
-        background: ${color}; border: 2px solid rgba(255,255,255,0.4);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 11px; cursor: pointer;
-        box-shadow: 0 0 8px ${color}88;
-      `;
-      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>`;
+      el.innerHTML = `<div style="width:12px;height:12px;border-radius:3px;background:${color};border:1.5px solid rgba(255,255,255,0.5);box-shadow:0 0 6px ${color};"></div>`;
 
-      let thresholdHTML = "";
-      if (station.alertWL || station.alarmWL || station.criticalWL) {
-        thresholdHTML = `<div style="margin-top:4px;background:rgba(255,255,255,0.06);border-radius:4px;padding:4px 6px;">`;
-        thresholdHTML += `<div style="font-size:9px;color:#9CA3AF;margin-bottom:2px;">Thresholds</div>`;
-        if (station.alertWL) thresholdHTML += `<div style="display:flex;justify-content:space-between;"><span style="color:#FCD116;font-size:10px;">Alert</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${station.alertWL}m</span></div>`;
-        if (station.alarmWL) thresholdHTML += `<div style="display:flex;justify-content:space-between;"><span style="color:#FF6B35;font-size:10px;">Alarm</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${station.alarmWL}m</span></div>`;
-        if (station.criticalWL) thresholdHTML += `<div style="display:flex;justify-content:space-between;"><span style="color:#CE1126;font-size:10px;">Critical</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${station.criticalWL}m</span></div>`;
-        thresholdHTML += `</div>`;
-      }
-
-      const popup = new maplibregl.Popup({
-        className: "noah-popup",
-        maxWidth: "260px",
-        offset: 15,
-      }).setHTML(`
-        <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
-            <div>
-              <div style="font-weight:700;font-size:14px;color:${color};">${station.name}</div>
-              <div style="font-size:10px;color:#6B7280;">PAGASA FFWS Station</div>
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([st.lon, st.lat])
+        .setPopup(
+          new maplibregl.Popup({ className: "noah-popup", maxWidth: "260px" }).setHTML(`
+            <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="background:${color};width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
+                </div>
+                <div>
+                  <div style="font-weight:700;font-size:13px;">${st.name}</div>
+                  <div style="font-size:10px;color:#6B7280;">PAGASA FFWS</div>
+                </div>
+              </div>
+              <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                  <span style="color:#6B7280;">Level</span>
+                  <span style="font-weight:700;font-family:'JetBrains Mono',monospace;">${st.currentWL || "N/A"} m</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:#6B7280;">Status</span>
+                  <span style="background:${color};color:white;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">${status}</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#6B7280;font-size:10px;">Water Level</span>
-              <span style="color:${color};font-weight:700;font-family:'JetBrains Mono',monospace;font-size:14px;">${station.currentWL}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#6B7280;font-size:10px;">Status</span>
-              <span style="background:${color};color:white;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;">${statusLabel}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;">
-              <span style="color:#6B7280;font-size:10px;">Updated</span>
-              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${station.timestamp}</span>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;font-size:9px;color:#9CA3AF;font-family:'JetBrains Mono',monospace;margin-top:4px;">
-            <span>-10m: ${station.wl10m}</span>
-            <span>-30m: ${station.wl30m}</span>
-            <span>-1h: ${station.wl1h}</span>
-          </div>
-          ${thresholdHTML}
-        </div>
-      `);
-
-      new maplibregl.Marker({ element: el })
-        .setLngLat([station.lon, station.lat])
-        .setPopup(popup)
+          `)
+        )
         .addTo(map);
+
+      (marker as any)._isWaterLevel = true;
+      markersRef.current.push(marker);
     });
   }, [waterLevels, showWaterLevels, mapReady]);
 
-  // ===== NOAH HAZARD LAYERS =====
-  
-  // Helper to add a hazard layer
-  const addHazardLayer = useCallback(async (
-    hazardType: "flood" | "landslide" | "stormsurge",
-    propKey: string,
-    url: string
-  ) => {
+  // Add NOAH hazard layer
+  const addHazardLayer = useCallback(async (hazardType: string, propKey: string, url: string) => {
     if (!mapInstance.current) return;
     const map = mapInstance.current;
     const sourceId = `noah-${hazardType}`;
     const fillId = `noah-${hazardType}-fill`;
     const outlineId = `noah-${hazardType}-outline`;
 
+    // If source already exists, just show layers
     if (map.getSource(sourceId)) {
-      // Already loaded, just show
       if (map.getLayer(fillId)) map.setLayoutProperty(fillId, "visibility", "visible");
       if (map.getLayer(outlineId)) map.setLayoutProperty(outlineId, "visibility", "visible");
       return;
     }
 
-    // Show loading state
     setHazardLoading(prev => ({ ...prev, [hazardType]: true }));
 
     try {
-      const response = await fetch(url);
-      const geojson = await response.json();
+      const colors = HAZARD_COLORS[hazardType as keyof typeof HAZARD_COLORS];
+      const outlines = HAZARD_OUTLINES[hazardType as keyof typeof HAZARD_OUTLINES];
 
-      if (!mapInstance.current) return;
+      map.addSource(sourceId, { type: "geojson", data: url });
 
-      map.addSource(sourceId, {
-        type: "geojson",
-        data: geojson,
-      });
-
-      const colors = HAZARD_COLORS[hazardType];
-      const outlines = HAZARD_OUTLINES[hazardType];
-
-      // Fill layer with data-driven color based on hazard level
       map.addLayer({
         id: fillId,
         type: "fill",
@@ -496,11 +442,10 @@ export default function MapPanel() {
             3, colors[3],
             colors[1],
           ],
-          "fill-opacity": 1,
+          "fill-opacity": 0.7,
         },
-      }, "earthquake-glow"); // Insert below earthquake layers
+      }, "earthquake-glow");
 
-      // Outline layer
       map.addLayer({
         id: outlineId,
         type: "line",
@@ -548,19 +493,15 @@ export default function MapPanel() {
                 </div>
               </div>
               <div style="font-size:9px;color:#6B7280;margin-top:4px;">
-                Source: UPRI Project NOAH • 100-year return period
+                Source: UPRI Project NOAH | 100-year return period
               </div>
             </div>
           `)
           .addTo(map);
       });
 
-      map.on("mouseenter", fillId, () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", fillId, () => {
-        map.getCanvas().style.cursor = "";
-      });
+      map.on("mouseenter", fillId, () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", fillId, () => { map.getCanvas().style.cursor = ""; });
 
     } catch (err) {
       console.warn(`Failed to load ${hazardType} hazard data:`, err);
@@ -608,14 +549,247 @@ export default function MapPanel() {
     }
   }, [showStormSurge, mapReady, addHazardLayer, hideHazardLayer]);
 
-  const toggleEarthquakes = useCallback(() => setShowEarthquakes((v) => !v), []);
-  const toggleTyphoons = useCallback(() => setShowTyphoons((v) => !v), []);
-  const toggleWaterLevels = useCallback(() => setShowWaterLevels((v) => !v), []);
-  const toggleHospitals = useCallback(() => setShowHospitals((v) => !v), []);
-  const toggleSchools = useCallback(() => setShowSchools((v) => !v), []);
-  const toggleFlood = useCallback(() => setShowFlood((v) => !v), []);
-  const toggleLandslide = useCallback(() => setShowLandslide((v) => !v), []);
-  const toggleStormSurge = useCallback(() => setShowStormSurge((v) => !v), []);
+  // Toggle volcano hazard zones
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+    const map = mapInstance.current;
+
+    if (showVolcano) {
+      if (!map.getSource("volcano-zones")) {
+        setHazardLoading(prev => ({ ...prev, volcano: true }));
+
+        map.addSource("volcano-zones", { type: "geojson", data: VOLCANO_HAZARDS });
+
+        // EDZ fill (level 2)
+        map.addLayer({
+          id: "volcano-edz-fill",
+          type: "fill",
+          source: "volcano-zones",
+          filter: ["==", ["get", "zone"], "EDZ"],
+          paint: {
+            "fill-color": "rgba(255, 140, 0, 0.25)",
+            "fill-opacity": 0.7,
+          },
+        }, "earthquake-glow");
+
+        // PDZ fill (level 3)
+        map.addLayer({
+          id: "volcano-pdz-fill",
+          type: "fill",
+          source: "volcano-zones",
+          filter: ["==", ["get", "zone"], "PDZ"],
+          paint: {
+            "fill-color": "rgba(206, 17, 38, 0.35)",
+            "fill-opacity": 0.7,
+          },
+        }, "earthquake-glow");
+
+        // EDZ outline
+        map.addLayer({
+          id: "volcano-edz-outline",
+          type: "line",
+          source: "volcano-zones",
+          filter: ["==", ["get", "zone"], "EDZ"],
+          paint: {
+            "line-color": "rgba(255, 140, 0, 0.7)",
+            "line-width": 1.5,
+            "line-dasharray": [4, 2],
+          },
+        }, "earthquake-glow");
+
+        // PDZ outline
+        map.addLayer({
+          id: "volcano-pdz-outline",
+          type: "line",
+          source: "volcano-zones",
+          filter: ["==", ["get", "zone"], "PDZ"],
+          paint: {
+            "line-color": "rgba(206, 17, 38, 0.8)",
+            "line-width": 2,
+          },
+        }, "earthquake-glow");
+
+        // Summit markers
+        map.addLayer({
+          id: "volcano-summit",
+          type: "circle",
+          source: "volcano-zones",
+          filter: ["==", ["get", "zone"], "SUMMIT"],
+          paint: {
+            "circle-radius": 6,
+            "circle-color": "#CE1126",
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+
+        // Summit labels
+        map.addLayer({
+          id: "volcano-labels",
+          type: "symbol",
+          source: "volcano-zones",
+          filter: ["==", ["get", "zone"], "SUMMIT"],
+          layout: {
+            "text-field": ["get", "name"],
+            "text-size": 11,
+            "text-offset": [0, 1.5],
+            "text-anchor": "top",
+            "text-font": ["Open Sans Bold"],
+          },
+          paint: {
+            "text-color": "#CE1126",
+            "text-halo-color": "#ffffff",
+            "text-halo-width": 1.5,
+          },
+        });
+
+        // Click handler for volcano zones
+        const volcanoClickHandler = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+          if (!e.features || e.features.length === 0) return;
+          const f = e.features[0];
+          const name = f.properties?.name || "Unknown";
+          const zone = f.properties?.zone || "";
+          const zoneLabel = f.properties?.zone_label || zone;
+          const radius = f.properties?.radius_km || "";
+          const alertLevel = f.properties?.alert_level || 0;
+          const province = f.properties?.province || "";
+          const vType = f.properties?.type || "";
+          const elevation = f.properties?.elevation_m || "";
+          const lastEruption = f.properties?.last_eruption || "";
+          const hazards = f.properties?.hazards || "";
+          const zoneColor = zone === "PDZ" ? "#CE1126" : "#FF8C00";
+
+          new maplibregl.Popup({ className: "noah-popup", maxWidth: "280px" })
+            .setLngLat(e.lngLat)
+            .setHTML(`
+              <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                  <div style="background:${zoneColor};width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-weight:700;font-size:14px;">${name} Volcano</div>
+                    <div style="font-size:10px;color:#6B7280;">${province} | ${vType}</div>
+                  </div>
+                </div>
+                <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;margin-bottom:4px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="color:#6B7280;font-size:10px;">Zone</span>
+                    <span style="background:${zoneColor};color:white;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">${zoneLabel}${radius ? ` (${radius} km)` : ""}</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="color:#6B7280;font-size:10px;">Alert Level</span>
+                    <span style="font-weight:700;">${alertLevel}</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="color:#6B7280;font-size:10px;">Elevation</span>
+                    <span style="font-weight:600;">${elevation} m</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;">
+                    <span style="color:#6B7280;font-size:10px;">Last Eruption</span>
+                    <span style="font-weight:600;">${lastEruption}</span>
+                  </div>
+                </div>
+                ${hazards ? `<div style="font-size:9px;color:#6B7280;">Hazards: ${hazards}</div>` : ""}
+                <div style="font-size:9px;color:#6B7280;margin-top:2px;">Source: PHIVOLCS</div>
+              </div>
+            `)
+            .addTo(map);
+        };
+
+        map.on("click", "volcano-pdz-fill", volcanoClickHandler);
+        map.on("click", "volcano-edz-fill", volcanoClickHandler);
+        map.on("click", "volcano-summit", volcanoClickHandler);
+
+        ["volcano-pdz-fill", "volcano-edz-fill", "volcano-summit"].forEach(id => {
+          map.on("mouseenter", id, () => { map.getCanvas().style.cursor = "pointer"; });
+          map.on("mouseleave", id, () => { map.getCanvas().style.cursor = ""; });
+        });
+
+        setHazardLoading(prev => ({ ...prev, volcano: false }));
+      } else {
+        ["volcano-edz-fill", "volcano-pdz-fill", "volcano-edz-outline", "volcano-pdz-outline", "volcano-summit", "volcano-labels"].forEach(id => {
+          if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible");
+        });
+      }
+    } else {
+      ["volcano-edz-fill", "volcano-pdz-fill", "volcano-edz-outline", "volcano-pdz-outline", "volcano-summit", "volcano-labels"].forEach(id => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+      });
+    }
+  }, [showVolcano, mapReady]);
+
+  // Toggle RainViewer radar overlay
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+    const map = mapInstance.current;
+
+    if (showRadar) {
+      // Fetch latest radar timestamp from RainViewer API
+      const loadRadar = async () => {
+        try {
+          const resp = await fetch(RAINVIEWER_API);
+          const data = await resp.json();
+          const radarFrames = data?.radar?.past || [];
+          if (radarFrames.length === 0) return;
+
+          // Use the most recent frame
+          const latestFrame = radarFrames[radarFrames.length - 1];
+          const ts = latestFrame.path; // e.g., "/v2/radar/1234567890/256/{z}/{x}/{y}/2/1_1"
+          radarTimestampRef.current = ts;
+
+          const tileUrl = `https://tilecache.rainviewer.com${ts}/256/{z}/{x}/{y}/2/1_1.png`;
+
+          if (!map.getSource("rainviewer-radar")) {
+            map.addSource("rainviewer-radar", {
+              type: "raster",
+              tiles: [tileUrl],
+              tileSize: 256,
+            });
+            map.addLayer({
+              id: "rainviewer-radar-layer",
+              type: "raster",
+              source: "rainviewer-radar",
+              paint: {
+                "raster-opacity": 0.6,
+              },
+            }, "earthquake-glow");
+          } else {
+            // Update the tile URL with new timestamp
+            map.removeLayer("rainviewer-radar-layer");
+            map.removeSource("rainviewer-radar");
+            map.addSource("rainviewer-radar", {
+              type: "raster",
+              tiles: [tileUrl],
+              tileSize: 256,
+            });
+            map.addLayer({
+              id: "rainviewer-radar-layer",
+              type: "raster",
+              source: "rainviewer-radar",
+              paint: {
+                "raster-opacity": 0.6,
+              },
+            }, "earthquake-glow");
+          }
+        } catch (err) {
+          console.warn("Failed to load RainViewer radar:", err);
+        }
+      };
+
+      loadRadar();
+      // Refresh radar every 5 minutes
+      const interval = setInterval(loadRadar, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    } else {
+      if (map.getLayer("rainviewer-radar-layer")) {
+        map.removeLayer("rainviewer-radar-layer");
+      }
+      if (map.getSource("rainviewer-radar")) {
+        map.removeSource("rainviewer-radar");
+      }
+    }
+  }, [showRadar, mapReady]);
 
   // Load hospitals GeoJSON when toggled
   useEffect(() => {
@@ -723,23 +897,44 @@ export default function MapPanel() {
     }
   }, [showSchools, mapReady]);
 
-  // Fly to Metro Manila when any hazard layer is first enabled
-  useEffect(() => {
-    if (!mapReady || !mapInstance.current) return;
-    if (showFlood || showLandslide || showStormSurge) {
-      const map = mapInstance.current;
-      const zoom = map.getZoom();
-      // Only fly if zoomed out (viewing whole Philippines)
-      if (zoom < 9) {
-        map.flyTo({
-          center: [121.0, 14.55],
-          zoom: 10.5,
-          duration: 2000,
-          essential: true,
-        });
-      }
+  // Province search handler
+  const handleSearchInput = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (value.trim().length > 0) {
+      setSearchResults(searchProvinces(value));
+    } else {
+      setSearchResults([]);
     }
-  }, [showFlood, showLandslide, showStormSurge, mapReady]);
+  }, []);
+
+  const flyToProvince = useCallback((province: Province) => {
+    if (!mapInstance.current) return;
+    mapInstance.current.flyTo({
+      center: [province.lon, province.lat],
+      zoom: province.zoom,
+      duration: 2000,
+      essential: true,
+    });
+    // Auto-enable all hazard overlays
+    setShowFlood(true);
+    setShowLandslide(true);
+    setShowStormSurge(true);
+    // Clear search
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowSearch(false);
+  }, []);
+
+  const toggleEarthquakes = useCallback(() => setShowEarthquakes((v) => !v), []);
+  const toggleTyphoons = useCallback(() => setShowTyphoons((v) => !v), []);
+  const toggleWaterLevels = useCallback(() => setShowWaterLevels((v) => !v), []);
+  const toggleHospitals = useCallback(() => setShowHospitals((v) => !v), []);
+  const toggleSchools = useCallback(() => setShowSchools((v) => !v), []);
+  const toggleFlood = useCallback(() => setShowFlood((v) => !v), []);
+  const toggleLandslide = useCallback(() => setShowLandslide((v) => !v), []);
+  const toggleStormSurge = useCallback(() => setShowStormSurge((v) => !v), []);
+  const toggleVolcano = useCallback(() => setShowVolcano((v) => !v), []);
+  const toggleRadar = useCallback(() => setShowRadar((v) => !v), []);
 
   const btnClass = (active: boolean) =>
     `flex items-center gap-1 px-2 py-1 rounded text-[9px] font-semibold tracking-wider transition-all border ${
@@ -752,95 +947,125 @@ export default function MapPanel() {
     <div className="h-full w-full relative">
       <div ref={mapRef} className="h-full w-full" />
 
+      {/* Province Search Bar */}
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1001]">
+        <div className="relative">
+          <div
+            className={`flex items-center bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 transition-all ${showSearch ? "w-72" : "w-44"}`}
+          >
+            <svg className="w-4 h-4 ml-3 text-gray-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search province..."
+              value={searchQuery}
+              onChange={(e) => handleSearchInput(e.target.value)}
+              onFocus={() => setShowSearch(true)}
+              onBlur={() => setTimeout(() => setShowSearch(false), 200)}
+              className="w-full px-2 py-2 text-xs bg-transparent outline-none text-gray-800 placeholder-gray-400"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(""); setSearchResults([]); }}
+                className="mr-2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            )}
+          </div>
+
+          {/* Search Results Dropdown */}
+          {showSearch && searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden max-h-64 overflow-y-auto">
+              {searchResults.map((p) => (
+                <button
+                  key={p.name}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => flyToProvince(p)}
+                  className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
+                >
+                  <div className="text-xs font-semibold text-gray-800">{p.name}</div>
+                  <div className="text-[10px] text-gray-500">{p.region}</div>
+                </button>
+              ))}
+              <div className="px-3 py-1.5 text-[9px] text-gray-400 bg-gray-50">
+                Selecting a province auto-enables all hazard layers
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Layer toggle controls */}
-      <div className="absolute top-2 left-2 z-[1000] flex flex-col gap-1.5">
+      <div className="absolute top-12 left-2 z-[1000] flex flex-col gap-1.5">
         {/* Row 1: Data layers */}
         <div className="flex gap-1">
-          <button
-            onClick={toggleEarthquakes}
-            className={btnClass(showEarthquakes)}
-            style={showEarthquakes ? { color: "#FCD116", borderColor: "#FCD116" } : {}}
-            title="Toggle earthquake markers"
-          >
+          <button onClick={toggleEarthquakes} className={btnClass(showEarthquakes)}
+            style={showEarthquakes ? { color: "#FCD116", borderColor: "#FCD116" } : {}} title="Toggle earthquake markers">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m2 12 4-4 3 6 4-8 3 6 4-4"/></svg> EQ
           </button>
-          <button
-            onClick={toggleTyphoons}
-            className={btnClass(showTyphoons)}
-            style={showTyphoons ? { color: "#FF6B35", borderColor: "#FF6B35" } : {}}
-            title="Toggle typhoon tracker"
-          >
+          <button onClick={toggleTyphoons} className={btnClass(showTyphoons)}
+            style={showTyphoons ? { color: "#FF6B35", borderColor: "#FF6B35" } : {}} title="Toggle typhoon tracker">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 4H3"/><path d="M18 8H6"/><path d="M19 12H9"/><path d="M16 16H5"/><path d="M21 20H3"/></svg> TC
           </button>
-          <button
-            onClick={toggleWaterLevels}
-            className={btnClass(showWaterLevels)}
-            style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}}
-            title="Toggle water level stations"
-          >
+          <button onClick={toggleWaterLevels} className={btnClass(showWaterLevels)}
+            style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}} title="Toggle water level stations">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg> WL
           </button>
         </div>
 
         {/* Row 2: NOAH Hazard overlays */}
         <div className="flex gap-1">
-          <button
-            onClick={toggleFlood}
-            className={btnClass(showFlood)}
-            style={showFlood ? { color: "#41B6E6", borderColor: "#41B6E6" } : {}}
-            title="Toggle NOAH Flood Hazard (Metro Manila)"
-          >
+          <button onClick={toggleFlood} className={btnClass(showFlood)}
+            style={showFlood ? { color: "#41B6E6", borderColor: "#41B6E6" } : {}} title="Toggle NOAH Flood Hazard">
             {hazardLoading.flood ? (
-              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
             ) : (
               <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
-            )}
-            Flood
+            )} Flood
           </button>
-          <button
-            onClick={toggleLandslide}
-            className={btnClass(showLandslide)}
-            style={showLandslide ? { color: "#F2994A", borderColor: "#F2994A" } : {}}
-            title="Toggle NOAH Landslide Hazard (Metro Manila)"
-          >
+          <button onClick={toggleLandslide} className={btnClass(showLandslide)}
+            style={showLandslide ? { color: "#F2994A", borderColor: "#F2994A" } : {}} title="Toggle NOAH Landslide Hazard">
             {hazardLoading.landslide ? (
-              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
             ) : (
               <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
-            )}
-            Slide
+            )} Slide
           </button>
-          <button
-            onClick={toggleStormSurge}
-            className={btnClass(showStormSurge)}
-            style={showStormSurge ? { color: "#B482FF", borderColor: "#B482FF" } : {}}
-            title="Toggle NOAH Storm Surge Hazard (Metro Manila)"
-          >
+          <button onClick={toggleStormSurge} className={btnClass(showStormSurge)}
+            style={showStormSurge ? { color: "#B482FF", borderColor: "#B482FF" } : {}} title="Toggle NOAH Storm Surge Hazard">
             {hazardLoading.stormsurge ? (
-              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
             ) : (
               <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
-            )}
-            Surge
+            )} Surge
           </button>
         </div>
 
-        {/* Row 3: Facilities */}
+        {/* Row 3: Volcano + Radar */}
         <div className="flex gap-1">
-          <button
-            onClick={toggleHospitals}
-            className={btnClass(showHospitals)}
-            style={showHospitals ? { color: "#00D4FF", borderColor: "#00D4FF" } : {}}
-            title="Toggle NOAH Hospitals"
-          >
+          <button onClick={toggleVolcano} className={btnClass(showVolcano)}
+            style={showVolcano ? { color: "#CE1126", borderColor: "#CE1126" } : {}} title="Toggle Volcano Hazard Zones (PHIVOLCS)">
+            {hazardLoading.volcano ? (
+              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            ) : (
+              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/></svg>
+            )} Volcano
+          </button>
+          <button onClick={toggleRadar} className={btnClass(showRadar)}
+            style={showRadar ? { color: "#00E676", borderColor: "#00E676" } : {}} title="Toggle Weather Radar (RainViewer)">
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><circle cx="12" cy="12" r="2"/></svg> Radar
+          </button>
+        </div>
+
+        {/* Row 4: Facilities */}
+        <div className="flex gap-1">
+          <button onClick={toggleHospitals} className={btnClass(showHospitals)}
+            style={showHospitals ? { color: "#00D4FF", borderColor: "#00D4FF" } : {}} title="Toggle NOAH Hospitals">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v5"/><path d="M10 11h4"/><rect x="4" y="6" width="16" height="16" rx="2"/></svg> Hosp
           </button>
-          <button
-            onClick={toggleSchools}
-            className={btnClass(showSchools)}
-            style={showSchools ? { color: "#FCD116", borderColor: "#FCD116" } : {}}
-            title="Toggle NOAH Schools"
-          >
+          <button onClick={toggleSchools} className={btnClass(showSchools)}
+            style={showSchools ? { color: "#FCD116", borderColor: "#FCD116" } : {}} title="Toggle NOAH Schools">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> School
           </button>
         </div>
@@ -917,6 +1142,45 @@ export default function MapPanel() {
           </>
         )}
 
+        {/* Volcano Legend */}
+        {showVolcano && (
+          <>
+            <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
+              VOLCANO ZONES
+            </div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="w-3 h-2 rounded-sm" style={{ background: "rgba(206, 17, 38, 0.5)" }} />
+              <span className="text-[oklch(0.70_0.005_260)]">PDZ (Permanent)</span>
+            </div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="w-3 h-2 rounded-sm border border-dashed border-orange-400" style={{ background: "rgba(255, 140, 0, 0.3)" }} />
+              <span className="text-[oklch(0.70_0.005_260)]">EDZ (Extended)</span>
+            </div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#CE1126] border border-white" />
+              <span className="text-[oklch(0.70_0.005_260)]">Summit</span>
+            </div>
+          </>
+        )}
+
+        {/* Radar Legend */}
+        {showRadar && (
+          <>
+            <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
+              WEATHER RADAR
+            </div>
+            <div className="flex items-center gap-0.5 mb-0.5">
+              <span className="w-2 h-2 rounded-sm" style={{ background: "#00E676" }} />
+              <span className="w-2 h-2 rounded-sm" style={{ background: "#FFEB3B" }} />
+              <span className="w-2 h-2 rounded-sm" style={{ background: "#FF9800" }} />
+              <span className="w-2 h-2 rounded-sm" style={{ background: "#F44336" }} />
+              <span className="w-2 h-2 rounded-sm" style={{ background: "#9C27B0" }} />
+              <span className="text-[oklch(0.70_0.005_260)] ml-1">Light → Heavy</span>
+            </div>
+            <div className="text-[8px] text-[oklch(0.50_0.01_260)]">Source: RainViewer</div>
+          </>
+        )}
+
         <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
           FACILITIES
         </div>
@@ -946,7 +1210,7 @@ export default function MapPanel() {
       </div>
 
       {/* Counts badge */}
-      <div className="absolute top-2 right-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2.5 py-1.5 text-[10px] font-mono text-[oklch(0.65_0.01_260)] border border-[oklch(0.25_0.02_260_/_0.5)] flex flex-col gap-0.5">
+      <div className="absolute top-12 right-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2.5 py-1.5 text-[10px] font-mono text-[oklch(0.65_0.01_260)] border border-[oklch(0.25_0.02_260_/_0.5)] flex flex-col gap-0.5">
         <div>
           <span className="text-[#FCD116] font-bold">{earthquakes.length}</span>{" "}
           quakes (30d)
@@ -969,6 +1233,18 @@ export default function MapPanel() {
             <span className="text-[8px]">Nationwide</span>
           </div>
         )}
+        {showVolcano && (
+          <div>
+            <span className="text-[#CE1126] font-bold">12</span>{" "}
+            volcanoes
+          </div>
+        )}
+        {showRadar && (
+          <div>
+            <span className="text-[#00E676] font-bold">RADAR</span>{" "}
+            <span className="text-[8px]">Live</span>
+          </div>
+        )}
       </div>
 
       {/* Attribution — positioned below the MapLibre zoom +/- controls */}
@@ -977,7 +1253,7 @@ export default function MapPanel() {
           CARTO / OpenStreetMap
         </div>
         <div className="text-[7px] text-[oklch(0.45_0.01_260)] font-mono">
-          Data: USGS / GDACS / PAGASA / UPRI-NOAH
+          Data: USGS / GDACS / PAGASA / UPRI-NOAH / PHIVOLCS / RainViewer
         </div>
       </div>
     </div>
