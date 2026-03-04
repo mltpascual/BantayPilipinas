@@ -37,7 +37,7 @@ export default function LivecamsPanel() {
         <div className="flex-1 relative rounded overflow-hidden bg-black min-h-0">
           <iframe
             key={WEBCAMS[selected].videoId}
-            src={`https://www.youtube.com/embed/${WEBCAMS[selected].videoId}?autoplay=0&mute=1`}
+            src={`https://www.youtube.com/embed/${WEBCAMS[selected].videoId}?autoplay=1&mute=1`}
             className="absolute inset-0 w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen

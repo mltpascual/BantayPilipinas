@@ -13,6 +13,7 @@ import AccidentsPanel from "@/components/panels/AccidentsPanel";
 import MMDAPanel from "@/components/panels/MMDAPanel";
 import PhiVolcsPanel from "@/components/panels/PhiVolcsPanel";
 import WeatherPanel from "@/components/panels/WeatherPanel";
+import WaterLevelPanel from "@/components/panels/WaterLevelPanel";
 
 interface PanelConfig {
   id: string;
@@ -23,17 +24,19 @@ interface PanelConfig {
 }
 
 // Layout: 12 columns
-// Row 1 (y=0): Map(5w,9h) | News(4w,9h) | Weather(3w,5h) + PhiVolcs(3w,4h)
+// Row 1 (y=0): Map(5w,9h) | News(4w,9h) | Weather(3w,4h) + PhiVolcs(3w,5h)
 // Row 2 (y=9): Livestream(3w,7h) | Livecams(3w,7h) | Accidents(3w,7h) | MMDA(3w,7h)
+// Row 3 (y=16): WaterLevel(3w,6h)
 const PANELS: PanelConfig[] = [
   { id: "map", title: "Map", icon: "🗺️", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 5, h: 9, minW: 3, minH: 4 } },
   { id: "news", title: "News", icon: "📰", component: NewsPanel, defaultLayout: { x: 5, y: 0, w: 4, h: 9, minW: 2, minH: 3 } },
-  { id: "weather", title: "Weather", icon: "🌤️", component: WeatherPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 5, minW: 2, minH: 3 } },
-  { id: "phivolcs", title: "PhiVolcs", icon: "🌋", component: PhiVolcsPanel, defaultLayout: { x: 9, y: 5, w: 3, h: 4, minW: 2, minH: 3 } },
+  { id: "weather", title: "Weather", icon: "🌤️", component: WeatherPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 } },
+  { id: "phivolcs", title: "PhiVolcs", icon: "🌋", component: PhiVolcsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 5, minW: 2, minH: 3 } },
   { id: "livestream", title: "Livestream", icon: "📺", component: LivestreamPanel, defaultLayout: { x: 0, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
   { id: "livecams", title: "Livecams", icon: "📷", component: LivecamsPanel, defaultLayout: { x: 3, y: 9, w: 3, h: 7, minW: 2, minH: 4 } },
   { id: "accidents", title: "Accidents", icon: "🚨", component: AccidentsPanel, defaultLayout: { x: 6, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "mmda", title: "MMDA", icon: "🚦", component: MMDAPanel, defaultLayout: { x: 9, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
+  { id: "waterlevel", title: "Water Levels", icon: "🌊", component: WaterLevelPanel, defaultLayout: { x: 0, y: 16, w: 4, h: 6, minW: 2, minH: 3 } },
 ];
 
 function getDefaultLayout() {

@@ -473,3 +473,86 @@ export function getTyphoonCategory(windSpeed: number): string {
   if (windSpeed >= 63) return "Tropical Storm";
   return "Tropical Depression";
 }
+
+// ===== PAGASA Water Level Monitoring =====
+
+export interface WaterLevelStation {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  timestamp: string;
+  currentWL: string;
+  wl10m: string;
+  wl30m: string;
+  wl1h: string;
+  wl2h: string;
+  change: string;
+  alertWL: number | null;
+  alarmWL: number | null;
+  criticalWL: number | null;
+  status: "normal" | "alert" | "alarm" | "critical";
+}
+
+export async function fetchWaterLevels(): Promise<WaterLevelStation[]> {
+  async function tryFetch(): Promise<any[]> {
+    // Use allorigins JSON wrapper (raw endpoint hangs for this API)
+    const response = await fetch(
+      `${CORS_PROXY_JSON}${encodeURIComponent("http://121.58.193.173:8080/water/main_list.do")}`
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const json = await response.json();
+    const contents = json.contents;
+    if (typeof contents === "string") return JSON.parse(contents);
+    if (Array.isArray(contents)) return contents;
+    return [];
+  }
+
+  try {
+    const data = await tryFetch();
+
+    if (!Array.isArray(data)) return [];
+
+    return data.map((station: any) => {
+      const currentVal = parseFloat((station.wl || "0").replace(/[^\d.-]/g, ""));
+      const alertVal = station.alertwl ? parseFloat(station.alertwl) : null;
+      const alarmVal = station.alarmwl ? parseFloat(station.alarmwl) : null;
+      const criticalVal = station.criticalwl ? parseFloat(station.criticalwl) : null;
+
+      let status: "normal" | "alert" | "alarm" | "critical" = "normal";
+      if (criticalVal && currentVal >= criticalVal) status = "critical";
+      else if (alarmVal && currentVal >= alarmVal) status = "alarm";
+      else if (alertVal && currentVal >= alertVal) status = "alert";
+
+      return {
+        id: station.obscd || "",
+        name: station.obsnm || "Unknown",
+        lat: station.lat || 0,
+        lon: station.lon || 0,
+        timestamp: station.timestr || "",
+        currentWL: station.wl || "--",
+        wl10m: station.wl10m || "--",
+        wl30m: station.wl30m || "--",
+        wl1h: station.wl1h || "--",
+        wl2h: station.wl2h || "--",
+        change: station.wlchange || "-",
+        alertWL: alertVal,
+        alarmWL: alarmVal,
+        criticalWL: criticalVal,
+        status,
+      };
+    });
+  } catch (err) {
+    console.warn("Failed to fetch water levels:", err);
+    return [];
+  }
+}
+
+export function getWaterLevelColor(status: string): string {
+  switch (status) {
+    case "critical": return "#CE1126";
+    case "alarm": return "#FF6B35";
+    case "alert": return "#FCD116";
+    default: return "#0038A8";
+  }
+}

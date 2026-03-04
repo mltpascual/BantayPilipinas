@@ -7,9 +7,10 @@ import { ReactNode } from "react";
 interface PanelWrapperProps {
   title: string;
   icon: string;
-  status?: "live" | "active" | "idle";
+  status?: "live" | "active" | "idle" | "alert" | "ok";
   children: ReactNode;
   className?: string;
+  badge?: string;
   onMaximize?: () => void;
 }
 
@@ -20,11 +21,14 @@ export default function PanelWrapper({
   children,
   className = "",
   onMaximize,
+  badge,
 }: PanelWrapperProps) {
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     live: "bg-[#CE1126] shadow-[0_0_6px_#CE1126]",
     active: "bg-[#22C55E] shadow-[0_0_6px_#22C55E]",
     idle: "bg-[#6B7280]",
+    alert: "bg-[#FCD116] shadow-[0_0_6px_#FCD116]",
+    ok: "bg-[#0038A8] shadow-[0_0_6px_#0038A8]",
   };
 
   return (
@@ -37,6 +41,8 @@ export default function PanelWrapper({
         </span>
         <div className={`w-1.5 h-1.5 rounded-full ${statusColors[status]} ${status === "live" ? "pulse-red" : ""}`} />
         {status === "live" && <span className="live-badge">LIVE</span>}
+        {status === "alert" && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#FCD116]/20 text-[#FCD116] font-mono">ALERT</span>}
+        {badge && <span className="text-[8px] font-mono text-[oklch(0.50_0.01_260)]">{badge}</span>}
         <div className="flex-1" />
         {onMaximize && (
           <button

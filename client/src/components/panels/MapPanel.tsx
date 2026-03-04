@@ -1,18 +1,22 @@
 // Design: "Ops Center Noir" — Dark CARTO map centered on Philippines
 // Earthquake markers color-coded by magnitude (Red=major, Yellow=moderate, Blue=light)
 // Typhoon tracker overlay with animated pulsing storm icons and wind radius circles
-// Toggle controls for earthquake and typhoon layers
+// Water level station markers from PAGASA FFWS
+// Toggle controls for earthquake, typhoon, and water level layers
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import {
   EarthquakeFeature,
   TyphoonData,
+  WaterLevelStation,
   fetchEarthquakes,
   fetchTyphoons,
+  fetchWaterLevels,
   formatMagnitude,
   getTyphoonColor,
   getTyphoonCategory,
+  getWaterLevelColor,
 } from "@/lib/feeds";
 
 export default function MapPanel() {
@@ -20,10 +24,13 @@ export default function MapPanel() {
   const mapInstance = useRef<L.Map | null>(null);
   const earthquakeLayer = useRef<L.LayerGroup | null>(null);
   const typhoonLayer = useRef<L.LayerGroup | null>(null);
+  const waterLevelLayer = useRef<L.LayerGroup | null>(null);
   const [earthquakes, setEarthquakes] = useState<EarthquakeFeature[]>([]);
   const [typhoons, setTyphoons] = useState<TyphoonData[]>([]);
+  const [waterLevels, setWaterLevels] = useState<WaterLevelStation[]>([]);
   const [showEarthquakes, setShowEarthquakes] = useState(true);
   const [showTyphoons, setShowTyphoons] = useState(true);
+  const [showWaterLevels, setShowWaterLevels] = useState(true);
 
   // Initialize map
   useEffect(() => {
@@ -48,6 +55,7 @@ export default function MapPanel() {
 
     earthquakeLayer.current = L.layerGroup().addTo(map);
     typhoonLayer.current = L.layerGroup().addTo(map);
+    waterLevelLayer.current = L.layerGroup().addTo(map);
     mapInstance.current = map;
 
     const observer = new ResizeObserver(() => {
@@ -72,13 +80,20 @@ export default function MapPanel() {
       const data = await fetchTyphoons();
       setTyphoons(data);
     };
+    const loadWL = async () => {
+      const data = await fetchWaterLevels();
+      setWaterLevels(data);
+    };
     loadEQ();
     loadTC();
+    loadWL();
     const eqInterval = setInterval(loadEQ, 300000);
-    const tcInterval = setInterval(loadTC, 600000); // 10 min
+    const tcInterval = setInterval(loadTC, 600000);
+    const wlInterval = setInterval(loadWL, 120000); // 2 min
     return () => {
       clearInterval(eqInterval);
       clearInterval(tcInterval);
+      clearInterval(wlInterval);
     };
   }, []);
 
@@ -136,7 +151,6 @@ export default function MapPanel() {
       const color = getTyphoonColor(tc.alertLevel, tc.windSpeed);
       const cat = getTyphoonCategory(tc.windSpeed);
 
-      // Outer pulsing wind radius circle
       const windRadiusKm = Math.max(100, tc.windSpeed * 1.5);
       const windCircle = L.circle([tc.lat, tc.lon], {
         radius: windRadiusKm * 1000,
@@ -150,7 +164,6 @@ export default function MapPanel() {
       });
       typhoonLayer.current!.addLayer(windCircle);
 
-      // Inner storm eye circle
       const eyeCircle = L.circle([tc.lat, tc.lon], {
         radius: 30000,
         fillColor: color,
@@ -162,7 +175,6 @@ export default function MapPanel() {
       });
       typhoonLayer.current!.addLayer(eyeCircle);
 
-      // Custom typhoon icon using divIcon
       const typhoonIcon = L.divIcon({
         className: "typhoon-marker",
         html: `
@@ -210,7 +222,6 @@ export default function MapPanel() {
 
       typhoonLayer.current!.addLayer(marker);
 
-      // Draw bounding box if available
       if (tc.bbox) {
         const [lonMin, lonMax, latMin, latMax] = tc.bbox;
         const bounds: L.LatLngBoundsExpression = [
@@ -229,8 +240,84 @@ export default function MapPanel() {
     });
   }, [typhoons, showTyphoons]);
 
+  // Update water level markers
+  useEffect(() => {
+    if (!waterLevelLayer.current) return;
+    waterLevelLayer.current.clearLayers();
+    if (!showWaterLevels) return;
+
+    waterLevels.forEach((station) => {
+      if (!station.lat || !station.lon) return;
+
+      const color = getWaterLevelColor(station.status);
+      const statusLabel = station.status.toUpperCase();
+
+      // Custom water level icon
+      const wlIcon = L.divIcon({
+        className: "water-level-marker",
+        html: `
+          <div style="position:relative; width:24px; height:24px; display:flex; align-items:center; justify-content:center;">
+            <div style="width:18px; height:18px; border-radius:4px; background:${color}; border:2px solid rgba(255,255,255,0.3); display:flex; align-items:center; justify-content:center; box-shadow:0 0 8px ${color}66;">
+              <span style="font-size:10px;">🌊</span>
+            </div>
+          </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+
+      const marker = L.marker([station.lat, station.lon], { icon: wlIcon });
+
+      // Build threshold info
+      let thresholdHTML = "";
+      if (station.alertWL || station.alarmWL || station.criticalWL) {
+        thresholdHTML = `<div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:6px; margin-top:6px;">
+          <div style="color:#9CA3AF; font-size:9px; font-weight:600; margin-bottom:3px;">THRESHOLDS</div>`;
+        if (station.alertWL) thresholdHTML += `<div style="display:flex; justify-content:space-between;"><span style="color:#FCD116; font-size:10px;">Alert</span><span style="color:#d1d5db; font-family:'JetBrains Mono',monospace; font-size:10px;">${station.alertWL}m</span></div>`;
+        if (station.alarmWL) thresholdHTML += `<div style="display:flex; justify-content:space-between;"><span style="color:#FF6B35; font-size:10px;">Alarm</span><span style="color:#d1d5db; font-family:'JetBrains Mono',monospace; font-size:10px;">${station.alarmWL}m</span></div>`;
+        if (station.criticalWL) thresholdHTML += `<div style="display:flex; justify-content:space-between;"><span style="color:#CE1126; font-size:10px;">Critical</span><span style="color:#d1d5db; font-family:'JetBrains Mono',monospace; font-size:10px;">${station.criticalWL}m</span></div>`;
+        thresholdHTML += `</div>`;
+      }
+
+      marker.bindPopup(`
+        <div style="font-family: 'Inter', sans-serif; font-size: 12px; min-width: 200px; line-height: 1.4;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+            <span style="font-size:18px;">🌊</span>
+            <div>
+              <div style="font-weight: 700; font-size: 14px; color: ${color};">${station.name}</div>
+              <div style="font-size:10px; color:#9CA3AF;">PAGASA FFWS Station</div>
+            </div>
+          </div>
+          <div style="background:rgba(255,255,255,0.05); border-radius:6px; padding:8px; margin-bottom:4px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="color:#9CA3AF; font-size:10px;">Water Level</span>
+              <span style="color:${color}; font-weight:700; font-family:'JetBrains Mono',monospace; font-size:14px;">${station.currentWL}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="color:#9CA3AF; font-size:10px;">Status</span>
+              <span style="background:${color}; color:white; padding:1px 6px; border-radius:3px; font-size:10px; font-weight:600;">${statusLabel}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span style="color:#9CA3AF; font-size:10px;">Updated</span>
+              <span style="color:#d1d5db; font-family:'JetBrains Mono',monospace; font-size:10px;">${station.timestamp}</span>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; font-size:9px; color:#9CA3AF; font-family:'JetBrains Mono',monospace;">
+            <span>-10m: ${station.wl10m}</span>
+            <span>-30m: ${station.wl30m}</span>
+            <span>-1h: ${station.wl1h}</span>
+          </div>
+          ${thresholdHTML}
+        </div>
+      `);
+
+      waterLevelLayer.current!.addLayer(marker);
+    });
+  }, [waterLevels, showWaterLevels]);
+
   const toggleEarthquakes = useCallback(() => setShowEarthquakes((v) => !v), []);
   const toggleTyphoons = useCallback(() => setShowTyphoons((v) => !v), []);
+  const toggleWaterLevels = useCallback(() => setShowWaterLevels((v) => !v), []);
 
   return (
     <div className="h-full w-full relative">
@@ -259,6 +346,17 @@ export default function MapPanel() {
           title="Toggle typhoon tracker"
         >
           <span className="text-[11px]">🌀</span> TC
+        </button>
+        <button
+          onClick={toggleWaterLevels}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-[9px] font-semibold tracking-wider transition-all border ${
+            showWaterLevels
+              ? "bg-[oklch(0.15_0.02_260_/_0.9)] border-[#0038A8] text-[#0038A8] shadow-[0_0_6px_oklch(0.45_0.15_260_/_0.2)]"
+              : "bg-[oklch(0.12_0.015_260_/_0.9)] border-[oklch(0.25_0.02_260)] text-[oklch(0.45_0.01_260)]"
+          }`}
+          title="Toggle water level stations"
+        >
+          <span className="text-[11px]">🌊</span> WL
         </button>
       </div>
 
@@ -294,13 +392,28 @@ export default function MapPanel() {
           <span className="w-2.5 h-0.5 bg-[#CE1126] rounded" />
           <span className="text-[oklch(0.70_0.005_260)]">Red Alert</span>
         </div>
-        <div className="flex items-center gap-1.5 mb-0.5">
+        <div className="flex items-center gap-1.5 mb-1.5">
           <span className="w-2.5 h-0.5 bg-[#FF6B35] rounded" />
           <span className="text-[oklch(0.70_0.005_260)]">Orange Alert</span>
         </div>
+        <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
+          WATER LEVELS
+        </div>
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="w-2.5 h-2.5 rounded bg-[#0038A8]" />
+          <span className="text-[oklch(0.70_0.005_260)]">Normal</span>
+        </div>
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="w-2.5 h-2.5 rounded bg-[#FCD116]" />
+          <span className="text-[oklch(0.70_0.005_260)]">Alert</span>
+        </div>
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="w-2.5 h-2.5 rounded bg-[#FF6B35]" />
+          <span className="text-[oklch(0.70_0.005_260)]">Alarm</span>
+        </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-0.5 bg-[#FCD116] rounded" />
-          <span className="text-[oklch(0.70_0.005_260)]">Green Alert</span>
+          <span className="w-2.5 h-2.5 rounded bg-[#CE1126]" />
+          <span className="text-[oklch(0.70_0.005_260)]">Critical</span>
         </div>
       </div>
 
@@ -314,6 +427,12 @@ export default function MapPanel() {
           <div>
             <span className="text-[#FF6B35] font-bold">{typhoons.length}</span>{" "}
             active storm{typhoons.length !== 1 ? "s" : ""}
+          </div>
+        )}
+        {waterLevels.length > 0 && (
+          <div>
+            <span className="text-[#0038A8] font-bold">{waterLevels.length}</span>{" "}
+            water stations
           </div>
         )}
       </div>
