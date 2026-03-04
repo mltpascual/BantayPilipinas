@@ -14,6 +14,7 @@ import MMDAPanel from "@/components/panels/MMDAPanel";
 import PhiVolcsPanel from "@/components/panels/PhiVolcsPanel";
 import WeatherPanel from "@/components/panels/WeatherPanel";
 import WaterLevelPanel from "@/components/panels/WaterLevelPanel";
+import NOAHPanel from "@/components/panels/NOAHPanel";
 
 interface PanelConfig {
   id: string;
@@ -37,6 +38,7 @@ const PANELS: PanelConfig[] = [
   { id: "accidents", title: "Accidents", icon: "🚨", component: AccidentsPanel, defaultLayout: { x: 6, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "mmda", title: "MMDA", icon: "🚦", component: MMDAPanel, defaultLayout: { x: 9, y: 9, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "waterlevel", title: "Water Levels", icon: "🌊", component: WaterLevelPanel, defaultLayout: { x: 0, y: 16, w: 4, h: 6, minW: 2, minH: 3 } },
+  { id: "noah", title: "NOAH Hazards", icon: "🛡️", component: NOAHPanel, defaultLayout: { x: 4, y: 16, w: 4, h: 6, minW: 2, minH: 4 } },
 ];
 
 function getDefaultLayout() {
