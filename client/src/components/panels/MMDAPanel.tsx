@@ -1,42 +1,82 @@
-// Design: "Ops Center Noir" — MMDA Twitter embed + filtered news
+// Design: "Ops Center Noir" — MMDA Facebook embed + filtered news
 // Yellow accent for traffic/MMDA content
+// MMDA is most active on Facebook (facebook.com/MMDAPH)
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import PanelWrapper from "@/components/PanelWrapper";
 import { FeedItem, fetchRSSFeed, timeAgo } from "@/lib/feeds";
 
 export default function MMDAPanel() {
-  const [tab, setTab] = useState<"twitter" | "news">("twitter");
+  const [tab, setTab] = useState<"facebook" | "news">("facebook");
   const [news, setNews] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const twitterRef = useRef<HTMLDivElement>(null);
-  const scriptLoaded = useRef(false);
+  const fbContainerRef = useRef<HTMLDivElement>(null);
+  const fbLoaded = useRef(false);
+  const [fbDimensions, setFbDimensions] = useState({ width: 340, height: 400 });
 
-  // Load Twitter widget
-  useEffect(() => {
-    if (scriptLoaded.current) return;
-    const script = document.createElement("script");
-    script.src = "https://platform.twitter.com/widgets.js";
-    script.async = true;
-    script.charset = "utf-8";
-    document.body.appendChild(script);
-    scriptLoaded.current = true;
+  // Load Facebook SDK and render Page Plugin
+  const loadFacebookSDK = useCallback(() => {
+    if (fbLoaded.current) return;
+    fbLoaded.current = true;
 
-    script.onload = () => {
-      if ((window as any).twttr?.widgets && twitterRef.current) {
-        (window as any).twttr.widgets.load(twitterRef.current);
-      }
-    };
-  }, []);
+    // Add FB SDK root div
+    if (!document.getElementById("fb-root")) {
+      const fbRoot = document.createElement("div");
+      fbRoot.id = "fb-root";
+      document.body.appendChild(fbRoot);
+    }
 
-  // Re-render Twitter widget when switching to twitter tab
-  useEffect(() => {
-    if (tab === "twitter" && (window as any).twttr?.widgets && twitterRef.current) {
+    // Load FB SDK
+    if (!(window as any).FB) {
+      const script = document.createElement("script");
+      script.src = "https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v18.0";
+      script.async = true;
+      script.defer = true;
+      script.crossOrigin = "anonymous";
+      document.body.appendChild(script);
+
+      script.onload = () => {
+        setTimeout(() => {
+          if ((window as any).FB?.XFBML) {
+            (window as any).FB.XFBML.parse(fbContainerRef.current);
+          }
+        }, 500);
+      };
+    } else {
       setTimeout(() => {
-        (window as any).twttr.widgets.load(twitterRef.current);
+        (window as any).FB?.XFBML?.parse(fbContainerRef.current);
       }, 200);
     }
-  }, [tab]);
+  }, []);
+
+  // Measure container for responsive FB embed
+  useEffect(() => {
+    if (!fbContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.floor(entry.contentRect.width);
+        const h = Math.floor(entry.contentRect.height);
+        if (w > 0 && h > 0) {
+          setFbDimensions({ width: Math.min(w, 500), height: Math.max(h, 300) });
+        }
+      }
+    });
+    observer.observe(fbContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Load FB SDK when facebook tab is active
+  useEffect(() => {
+    if (tab === "facebook") {
+      loadFacebookSDK();
+      // Re-parse when switching back to facebook tab
+      setTimeout(() => {
+        if ((window as any).FB?.XFBML && fbContainerRef.current) {
+          (window as any).FB.XFBML.parse(fbContainerRef.current);
+        }
+      }, 300);
+    }
+  }, [tab, loadFacebookSDK]);
 
   // Fetch MMDA-related news
   useEffect(() => {
@@ -68,14 +108,14 @@ export default function MMDAPanel() {
         {/* Tabs */}
         <div className="flex gap-1 shrink-0">
           <button
-            onClick={() => setTab("twitter")}
+            onClick={() => setTab("facebook")}
             className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
-              tab === "twitter"
-                ? "bg-[#1DA1F2] text-white shadow-[0_0_8px_#1DA1F240]"
+              tab === "facebook"
+                ? "bg-[#1877F2] text-white shadow-[0_0_8px_#1877F240]"
                 : "bg-[oklch(0.18_0.02_260)] text-[oklch(0.55_0.01_260)] hover:text-[oklch(0.80_0.005_260)]"
             }`}
           >
-            @MMDA Timeline
+            MMDA Facebook
           </button>
           <button
             onClick={() => setTab("news")}
@@ -85,29 +125,44 @@ export default function MMDAPanel() {
                 : "bg-[oklch(0.18_0.02_260)] text-[oklch(0.55_0.01_260)] hover:text-[oklch(0.80_0.005_260)]"
             }`}
           >
-            MMDA News ({news.length})
+            Traffic News ({news.length})
           </button>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-auto min-h-0">
-          {tab === "twitter" ? (
-            <div ref={twitterRef} className="h-full">
-              <a
-                className="twitter-timeline"
-                data-theme="dark"
-                data-chrome="noheader nofooter noborders transparent"
-                data-height="100%"
-                href="https://twitter.com/MMDA"
+          {tab === "facebook" ? (
+            <div ref={fbContainerRef} className="h-full w-full overflow-hidden">
+              <div
+                className="fb-page"
+                data-href="https://www.facebook.com/MMDAPH"
+                data-tabs="timeline"
+                data-width={fbDimensions.width}
+                data-height={fbDimensions.height}
+                data-small-header="true"
+                data-adapt-container-width="true"
+                data-hide-cover="false"
+                data-show-facepile="false"
               >
-                Loading @MMDA timeline...
-              </a>
+                <blockquote
+                  cite="https://www.facebook.com/MMDAPH"
+                  className="fb-xfbml-parse-ignore"
+                >
+                  <a href="https://www.facebook.com/MMDAPH" target="_blank" rel="noopener noreferrer">
+                    <div className="flex flex-col items-center justify-center h-32 gap-2">
+                      <svg className="w-8 h-8 text-[#1877F2]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                      <span className="text-[11px] font-semibold text-[oklch(0.70_0.01_260)]">Loading MMDA Facebook...</span>
+                      <span className="text-[9px] text-[oklch(0.45_0.01_260)]">facebook.com/MMDAPH</span>
+                    </div>
+                  </a>
+                </blockquote>
+              </div>
             </div>
           ) : (
             <div className="space-y-0.5">
               {loading && news.length === 0 ? (
                 <div className="flex items-center justify-center h-24 text-[oklch(0.50_0.01_260)] text-xs font-mono">
-                  Loading MMDA news...
+                  Loading traffic news...
                 </div>
               ) : news.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-24 gap-1">

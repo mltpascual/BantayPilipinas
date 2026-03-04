@@ -118,7 +118,8 @@ export default function MapPanel() {
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+    // Attribution is rendered manually below zoom controls — hide default
+    // map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
     map.on("load", () => {
       // Add earthquake GeoJSON source (empty initially)
@@ -970,9 +971,14 @@ export default function MapPanel() {
         )}
       </div>
 
-      {/* Attribution */}
-      <div className="absolute bottom-2 right-2 z-[1000] text-[8px] text-[oklch(0.45_0.01_260)] font-mono">
-        Data: USGS / GDACS / PAGASA / UPRI-NOAH
+      {/* Attribution — positioned below the MapLibre zoom +/- controls */}
+      <div className="absolute bottom-2 right-2 z-[1000] flex flex-col items-end gap-0.5">
+        <div className="text-[7px] text-[oklch(0.45_0.01_260)] font-mono">
+          CARTO / OpenStreetMap
+        </div>
+        <div className="text-[7px] text-[oklch(0.45_0.01_260)] font-mono">
+          Data: USGS / GDACS / PAGASA / UPRI-NOAH
+        </div>
       </div>
     </div>
   );
