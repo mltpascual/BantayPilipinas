@@ -2,6 +2,7 @@
 // Uses free CARTO dark basemap tiles — no API token required
 // Earthquake markers from USGS, Typhoon tracker from GDACS, Water level stations from PAGASA
 // NOAH critical facilities (Hospitals, Schools) from S3 GeoJSON
+// NOAH Hazard overlays: Flood, Landslide, Storm Surge (Metro Manila) from simplified GeoJSON
 // Toggle controls for each layer type
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -29,19 +30,58 @@ const CRITICAL_FACILITIES = {
   schools: "https://upri-noah.s3.ap-southeast-1.amazonaws.com/critical_facilities/schools.geojson",
 };
 
+// NOAH Hazard GeoJSON files (Metro Manila, simplified)
+const NOAH_HAZARDS = {
+  flood: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/flood_mm_1dec0b8c.geojson",
+  landslide: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/landslide_mm_effcdf49.geojson",
+  stormsurge: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343684150/bv7KxrQPggRZjkjamxW5FG/stormsurge_mm_6b50dc02.geojson",
+};
+
+// Hazard color schemes matching NOAH Studio
+// Flood: Var property (1=Low, 2=Medium, 3=High)
+// Landslide: LH property (1=Low, 2=Medium, 3=High)
+// Storm Surge: HAZ property (1=Low, 2=Medium, 3=High)
+const HAZARD_COLORS = {
+  flood: {
+    1: "rgba(65, 182, 230, 0.45)",   // Low - light blue
+    2: "rgba(30, 120, 220, 0.55)",    // Medium - blue
+    3: "rgba(10, 50, 168, 0.65)",     // High - dark blue
+  },
+  landslide: {
+    1: "rgba(252, 209, 22, 0.45)",    // Low - yellow
+    2: "rgba(242, 153, 74, 0.55)",    // Medium - orange
+    3: "rgba(206, 17, 38, 0.65)",     // High - red
+  },
+  stormsurge: {
+    1: "rgba(180, 130, 255, 0.40)",   // Low - light purple
+    2: "rgba(220, 80, 180, 0.50)",    // Medium - magenta
+    3: "rgba(206, 17, 38, 0.60)",     // High - red
+  },
+};
+
+const HAZARD_OUTLINES = {
+  flood: {
+    1: "rgba(65, 182, 230, 0.7)",
+    2: "rgba(30, 120, 220, 0.7)",
+    3: "rgba(10, 50, 168, 0.8)",
+  },
+  landslide: {
+    1: "rgba(252, 209, 22, 0.6)",
+    2: "rgba(242, 153, 74, 0.7)",
+    3: "rgba(206, 17, 38, 0.8)",
+  },
+  stormsurge: {
+    1: "rgba(180, 130, 255, 0.5)",
+    2: "rgba(220, 80, 180, 0.6)",
+    3: "rgba(206, 17, 38, 0.7)",
+  },
+};
+
 function getMagnitudeColor(mag: number): string {
   if (mag >= 7) return "#CE1126";
   if (mag >= 5) return "#FF6B35";
   if (mag >= 4) return "#FCD116";
   return "#0038A8";
-}
-
-function getMagnitudeRadius(mag: number): number {
-  if (mag >= 7) return 18;
-  if (mag >= 6) return 14;
-  if (mag >= 5) return 10;
-  if (mag >= 4) return 7;
-  return 5;
 }
 
 export default function MapPanel() {
@@ -58,7 +98,11 @@ export default function MapPanel() {
   const [showWaterLevels, setShowWaterLevels] = useState(true);
   const [showHospitals, setShowHospitals] = useState(false);
   const [showSchools, setShowSchools] = useState(false);
+  const [showFlood, setShowFlood] = useState(false);
+  const [showLandslide, setShowLandslide] = useState(false);
+  const [showStormSurge, setShowStormSurge] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [hazardLoading, setHazardLoading] = useState<Record<string, boolean>>({});
 
   // Initialize MapLibre GL map
   useEffect(() => {
@@ -289,7 +333,7 @@ export default function MapPanel() {
           <div style="background:rgba(255,255,255,0.08);border-radius:6px;padding:8px;">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
               <span style="color:#9CA3AF;font-size:10px;">Wind Speed</span>
-              <span style="color:${color};font-weight:700;font-family:'JetBrains Mono',monospace;">${tc.windSpeed} km/h</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${color};">${tc.windSpeed} km/h</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
               <span style="color:#9CA3AF;font-size:10px;">Alert Level</span>
@@ -318,7 +362,7 @@ export default function MapPanel() {
     if (!mapReady || !mapInstance.current) return;
     const map = mapInstance.current;
 
-    // Remove old WL markers (keep separate from typhoon markers)
+    // Remove old WL markers
     document.querySelectorAll(".wl-marker").forEach((el) => el.remove());
 
     if (!showWaterLevels || waterLevels.length === 0) return;
@@ -399,11 +443,178 @@ export default function MapPanel() {
     });
   }, [waterLevels, showWaterLevels, mapReady]);
 
+  // ===== NOAH HAZARD LAYERS =====
+  
+  // Helper to add a hazard layer
+  const addHazardLayer = useCallback(async (
+    hazardType: "flood" | "landslide" | "stormsurge",
+    propKey: string,
+    url: string
+  ) => {
+    if (!mapInstance.current) return;
+    const map = mapInstance.current;
+    const sourceId = `noah-${hazardType}`;
+    const fillId = `noah-${hazardType}-fill`;
+    const outlineId = `noah-${hazardType}-outline`;
+
+    if (map.getSource(sourceId)) {
+      // Already loaded, just show
+      if (map.getLayer(fillId)) map.setLayoutProperty(fillId, "visibility", "visible");
+      if (map.getLayer(outlineId)) map.setLayoutProperty(outlineId, "visibility", "visible");
+      return;
+    }
+
+    // Show loading state
+    setHazardLoading(prev => ({ ...prev, [hazardType]: true }));
+
+    try {
+      const response = await fetch(url);
+      const geojson = await response.json();
+
+      if (!mapInstance.current) return;
+
+      map.addSource(sourceId, {
+        type: "geojson",
+        data: geojson,
+      });
+
+      const colors = HAZARD_COLORS[hazardType];
+      const outlines = HAZARD_OUTLINES[hazardType];
+
+      // Fill layer with data-driven color based on hazard level
+      map.addLayer({
+        id: fillId,
+        type: "fill",
+        source: sourceId,
+        paint: {
+          "fill-color": [
+            "match",
+            ["get", propKey],
+            1, colors[1],
+            2, colors[2],
+            3, colors[3],
+            colors[1],
+          ],
+          "fill-opacity": 1,
+        },
+      }, "earthquake-glow"); // Insert below earthquake layers
+
+      // Outline layer
+      map.addLayer({
+        id: outlineId,
+        type: "line",
+        source: sourceId,
+        paint: {
+          "line-color": [
+            "match",
+            ["get", propKey],
+            1, outlines[1],
+            2, outlines[2],
+            3, outlines[3],
+            outlines[1],
+          ],
+          "line-width": 0.5,
+          "line-opacity": 0.6,
+        },
+      }, "earthquake-glow");
+
+      // Click handler for hazard zones
+      map.on("click", fillId, (e) => {
+        if (!e.features || e.features.length === 0) return;
+        const f = e.features[0];
+        const level = f.properties?.[propKey] || 1;
+        const levelLabel = level === 3 ? "High" : level === 2 ? "Medium" : "Low";
+        const typeLabel = hazardType === "stormsurge" ? "Storm Surge" : hazardType.charAt(0).toUpperCase() + hazardType.slice(1);
+        const levelColor = level === 3 ? "#CE1126" : level === 2 ? "#F2994A" : "#F2C94C";
+
+        new maplibregl.Popup({ className: "noah-popup", maxWidth: "240px" })
+          .setLngLat(e.lngLat)
+          .setHTML(`
+            <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#e5e7eb;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="background:${levelColor};width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                  <span style="font-size:16px;">${hazardType === "flood" ? "🌊" : hazardType === "landslide" ? "⛰️" : "🌊"}</span>
+                </div>
+                <div>
+                  <div style="font-weight:700;font-size:13px;">${typeLabel} Hazard</div>
+                  <div style="font-size:10px;color:#9CA3AF;">NOAH Metro Manila</div>
+                </div>
+              </div>
+              <div style="background:rgba(255,255,255,0.08);border-radius:6px;padding:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="color:#9CA3AF;font-size:10px;">Risk Level</span>
+                  <span style="background:${levelColor};color:white;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;">${levelLabel}</span>
+                </div>
+              </div>
+              <div style="font-size:9px;color:#9CA3AF;margin-top:4px;">
+                Source: UPRI Project NOAH • 100-year return period
+              </div>
+            </div>
+          `)
+          .addTo(map);
+      });
+
+      map.on("mouseenter", fillId, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", fillId, () => {
+        map.getCanvas().style.cursor = "";
+      });
+
+    } catch (err) {
+      console.warn(`Failed to load ${hazardType} hazard data:`, err);
+    } finally {
+      setHazardLoading(prev => ({ ...prev, [hazardType]: false }));
+    }
+  }, []);
+
+  const hideHazardLayer = useCallback((hazardType: string) => {
+    if (!mapInstance.current) return;
+    const map = mapInstance.current;
+    const fillId = `noah-${hazardType}-fill`;
+    const outlineId = `noah-${hazardType}-outline`;
+    if (map.getLayer(fillId)) map.setLayoutProperty(fillId, "visibility", "none");
+    if (map.getLayer(outlineId)) map.setLayoutProperty(outlineId, "visibility", "none");
+  }, []);
+
+  // Toggle flood hazard
+  useEffect(() => {
+    if (!mapReady) return;
+    if (showFlood) {
+      addHazardLayer("flood", "Var", NOAH_HAZARDS.flood);
+    } else {
+      hideHazardLayer("flood");
+    }
+  }, [showFlood, mapReady, addHazardLayer, hideHazardLayer]);
+
+  // Toggle landslide hazard
+  useEffect(() => {
+    if (!mapReady) return;
+    if (showLandslide) {
+      addHazardLayer("landslide", "LH", NOAH_HAZARDS.landslide);
+    } else {
+      hideHazardLayer("landslide");
+    }
+  }, [showLandslide, mapReady, addHazardLayer, hideHazardLayer]);
+
+  // Toggle storm surge hazard
+  useEffect(() => {
+    if (!mapReady) return;
+    if (showStormSurge) {
+      addHazardLayer("stormsurge", "HAZ", NOAH_HAZARDS.stormsurge);
+    } else {
+      hideHazardLayer("stormsurge");
+    }
+  }, [showStormSurge, mapReady, addHazardLayer, hideHazardLayer]);
+
   const toggleEarthquakes = useCallback(() => setShowEarthquakes((v) => !v), []);
   const toggleTyphoons = useCallback(() => setShowTyphoons((v) => !v), []);
   const toggleWaterLevels = useCallback(() => setShowWaterLevels((v) => !v), []);
   const toggleHospitals = useCallback(() => setShowHospitals((v) => !v), []);
   const toggleSchools = useCallback(() => setShowSchools((v) => !v), []);
+  const toggleFlood = useCallback(() => setShowFlood((v) => !v), []);
+  const toggleLandslide = useCallback(() => setShowLandslide((v) => !v), []);
+  const toggleStormSurge = useCallback(() => setShowStormSurge((v) => !v), []);
 
   // Load hospitals GeoJSON when toggled
   useEffect(() => {
@@ -511,6 +722,24 @@ export default function MapPanel() {
     }
   }, [showSchools, mapReady]);
 
+  // Fly to Metro Manila when any hazard layer is first enabled
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+    if (showFlood || showLandslide || showStormSurge) {
+      const map = mapInstance.current;
+      const zoom = map.getZoom();
+      // Only fly if zoomed out (viewing whole Philippines)
+      if (zoom < 9) {
+        map.flyTo({
+          center: [121.0, 14.55],
+          zoom: 10.5,
+          duration: 2000,
+          essential: true,
+        });
+      }
+    }
+  }, [showFlood, showLandslide, showStormSurge, mapReady]);
+
   const btnClass = (active: boolean) =>
     `flex items-center gap-1 px-2 py-1 rounded text-[9px] font-semibold tracking-wider transition-all border ${
       active
@@ -552,7 +781,50 @@ export default function MapPanel() {
           </button>
         </div>
 
-        {/* Row 2: Facilities */}
+        {/* Row 2: NOAH Hazard overlays */}
+        <div className="flex gap-1">
+          <button
+            onClick={toggleFlood}
+            className={btnClass(showFlood)}
+            style={showFlood ? { color: "#41B6E6", borderColor: "#41B6E6" } : {}}
+            title="Toggle NOAH Flood Hazard (Metro Manila)"
+          >
+            {hazardLoading.flood ? (
+              <span className="text-[11px] animate-spin">⏳</span>
+            ) : (
+              <span className="text-[11px]">💧</span>
+            )}
+            FLOOD
+          </button>
+          <button
+            onClick={toggleLandslide}
+            className={btnClass(showLandslide)}
+            style={showLandslide ? { color: "#F2994A", borderColor: "#F2994A" } : {}}
+            title="Toggle NOAH Landslide Hazard (Metro Manila)"
+          >
+            {hazardLoading.landslide ? (
+              <span className="text-[11px] animate-spin">⏳</span>
+            ) : (
+              <span className="text-[11px]">⛰️</span>
+            )}
+            SLIDE
+          </button>
+          <button
+            onClick={toggleStormSurge}
+            className={btnClass(showStormSurge)}
+            style={showStormSurge ? { color: "#B482FF", borderColor: "#B482FF" } : {}}
+            title="Toggle NOAH Storm Surge Hazard (Metro Manila)"
+          >
+            {hazardLoading.stormsurge ? (
+              <span className="text-[11px] animate-spin">⏳</span>
+            ) : (
+              <span className="text-[11px]">🌊</span>
+            )}
+            SURGE
+          </button>
+        </div>
+
+        {/* Row 3: Facilities */}
         <div className="flex gap-1">
           <button
             onClick={toggleHospitals}
@@ -574,7 +846,7 @@ export default function MapPanel() {
       </div>
 
       {/* Legend overlay */}
-      <div className="absolute bottom-2 left-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2.5 py-2 text-[10px] font-mono border border-[oklch(0.25_0.02_260_/_0.5)] max-h-[280px] overflow-y-auto">
+      <div className="absolute bottom-2 left-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2.5 py-2 text-[10px] font-mono border border-[oklch(0.25_0.02_260_/_0.5)] max-h-[320px] overflow-y-auto">
         <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider">
           EARTHQUAKES
         </div>
@@ -589,6 +861,60 @@ export default function MapPanel() {
             <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
           </div>
         ))}
+
+        {/* NOAH Hazards Legend */}
+        {(showFlood || showLandslide || showStormSurge) && (
+          <>
+            <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
+              NOAH HAZARDS
+            </div>
+            {showFlood && (
+              <div className="mb-1">
+                <div className="text-[8px] text-[#41B6E6] font-semibold mb-0.5">Flood</div>
+                {[
+                  { color: "rgba(65, 182, 230, 0.6)", label: "Low" },
+                  { color: "rgba(30, 120, 220, 0.7)", label: "Medium" },
+                  { color: "rgba(10, 50, 168, 0.8)", label: "High" },
+                ].map((item) => (
+                  <div key={`flood-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
+                    <span className="w-3 h-2 rounded-sm" style={{ background: item.color }} />
+                    <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {showLandslide && (
+              <div className="mb-1">
+                <div className="text-[8px] text-[#F2994A] font-semibold mb-0.5">Landslide</div>
+                {[
+                  { color: "rgba(252, 209, 22, 0.6)", label: "Low" },
+                  { color: "rgba(242, 153, 74, 0.7)", label: "Medium" },
+                  { color: "rgba(206, 17, 38, 0.8)", label: "High" },
+                ].map((item) => (
+                  <div key={`slide-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
+                    <span className="w-3 h-2 rounded-sm" style={{ background: item.color }} />
+                    <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {showStormSurge && (
+              <div className="mb-1">
+                <div className="text-[8px] text-[#B482FF] font-semibold mb-0.5">Storm Surge</div>
+                {[
+                  { color: "rgba(180, 130, 255, 0.5)", label: "Low" },
+                  { color: "rgba(220, 80, 180, 0.6)", label: "Medium" },
+                  { color: "rgba(206, 17, 38, 0.7)", label: "High" },
+                ].map((item) => (
+                  <div key={`surge-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
+                    <span className="w-3 h-2 rounded-sm" style={{ background: item.color }} />
+                    <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">
           FACILITIES
@@ -634,6 +960,12 @@ export default function MapPanel() {
           <div>
             <span className="text-[#0038A8] font-bold">{waterLevels.length}</span>{" "}
             water stations
+          </div>
+        )}
+        {(showFlood || showLandslide || showStormSurge) && (
+          <div className="border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-0.5 mt-0.5">
+            <span className="text-[#41B6E6] font-bold">NOAH</span>{" "}
+            <span className="text-[8px]">Metro Manila</span>
           </div>
         )}
       </div>
