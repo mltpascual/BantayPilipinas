@@ -1,21 +1,10 @@
 // PAGASA Tropical Cyclone Bulletin Banner
 // Fetches cyclone.dat from PAGASA pubfiles for active tropical cyclone data
-// Shows a scrolling banner when there's an active TC, or severe weather advisory
+// Shows a continuously looping marquee banner
 // Also shows alerts for M5+ earthquakes and critical water levels
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
-
-interface TCData {
-  name: string;
-  internationalName: string;
-  category: string;
-  lat: number;
-  lon: number;
-  maxWinds: number;
-  movement: string;
-  timestamp: string;
-}
 
 interface AlertItem {
   type: "typhoon" | "earthquake" | "water" | "advisory";
@@ -28,40 +17,21 @@ const PAGASA_CYCLONE_URL = "https://pubfiles.pagasa.dost.gov.ph/tamss/weather/cy
 const USGS_EQ_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=5&minlatitude=4&maxlatitude=22&minlongitude=115&maxlongitude=130&limit=5&orderby=time";
 const PAGASA_WATER_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("http://121.58.193.173:8080/water/main_list.do");
 
-function parseCycloneData(text: string): TCData | null {
+function parseCycloneData(text: string): { name: string; category: string } | null {
   try {
     const lines = text.trim().split("\n").filter(l => l.trim());
     if (lines.length < 2) return null;
-    
-    // cyclone.dat format varies, try to extract key info
-    // Typical format: name, position, winds, movement info
     const firstLine = lines[0].trim();
     if (firstLine.toLowerCase().includes("no tropical cyclone") || 
         firstLine.toLowerCase().includes("none") ||
         lines.length < 3) {
       return null;
     }
-    
-    // Try to parse structured data
-    // Format can be: TYPHOON_NAME | LAT | LON | WINDS | CATEGORY | etc.
     const data = lines.join(" ");
-    
-    // Extract name (usually first significant word/phrase)
     const nameMatch = data.match(/(?:typhoon|tropical storm|tropical depression|super typhoon|severe tropical storm)\s+"?([A-Z][A-Za-z]+)"?/i) 
       || data.match(/"([A-Z][A-Za-z]+)"/);
-    
     const name = nameMatch ? nameMatch[1] : lines[0].trim().split(/\s+/)[0];
-    
-    return {
-      name: name,
-      internationalName: "",
-      category: "Tropical Cyclone",
-      lat: 0,
-      lon: 0,
-      maxWinds: 0,
-      movement: "",
-      timestamp: new Date().toISOString(),
-    };
+    return { name, category: "Tropical Cyclone" };
   } catch {
     return null;
   }
@@ -72,8 +42,6 @@ export default function PAGASABulletinBanner() {
   const isDark = theme === "dark";
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [isVisible, setIsVisible] = useState(true);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchAlerts = async () => {
@@ -93,7 +61,7 @@ export default function PAGASABulletinBanner() {
               type: "typhoon",
               severity: "critical",
               message: `PAGASA TROPICAL CYCLONE ADVISORY: ${tc.category.toUpperCase()} "${tc.name}" is active in the Philippine Area of Responsibility`,
-              timestamp: tc.timestamp,
+              timestamp: new Date().toISOString(),
             });
           }
         }
@@ -159,104 +127,73 @@ export default function PAGASABulletinBanner() {
     };
 
     fetchAlerts();
-    const interval = setInterval(fetchAlerts, 5 * 60 * 1000); // Refresh every 5 min
+    const interval = setInterval(fetchAlerts, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Rotate alerts
-  useEffect(() => {
-    if (alerts.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % alerts.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [alerts.length]);
-
   if (!isVisible || alerts.length === 0) return null;
 
-  const current = alerts[currentIndex];
-  
+  // Determine highest severity for banner color
+  const highestSeverity = alerts.some(a => a.severity === "critical") ? "critical"
+    : alerts.some(a => a.severity === "warning") ? "warning" : "info";
+
   const severityColors = {
     critical: {
       dark: "bg-[oklch(0.25_0.12_25)] border-[oklch(0.45_0.18_25)] text-[oklch(0.90_0.05_25)]",
       light: "bg-[oklch(0.95_0.05_25)] border-[oklch(0.70_0.15_25)] text-[oklch(0.35_0.12_25)]",
-      icon: isDark ? "text-[oklch(0.70_0.20_25)]" : "text-[oklch(0.50_0.18_25)]",
       dot: "bg-[oklch(0.60_0.22_25)]",
     },
     warning: {
       dark: "bg-[oklch(0.25_0.10_85)] border-[oklch(0.50_0.15_85)] text-[oklch(0.90_0.05_85)]",
       light: "bg-[oklch(0.95_0.05_85)] border-[oklch(0.75_0.12_85)] text-[oklch(0.35_0.10_85)]",
-      icon: isDark ? "text-[oklch(0.75_0.17_85)]" : "text-[oklch(0.55_0.15_85)]",
       dot: "bg-[oklch(0.70_0.17_85)]",
     },
     info: {
       dark: "bg-[oklch(0.18_0.05_260)] border-[oklch(0.35_0.10_260)] text-[oklch(0.85_0.02_260)]",
       light: "bg-[oklch(0.95_0.02_260)] border-[oklch(0.80_0.05_260)] text-[oklch(0.30_0.05_260)]",
-      icon: isDark ? "text-[oklch(0.60_0.15_260)]" : "text-[oklch(0.45_0.12_260)]",
       dot: "bg-[oklch(0.55_0.15_260)]",
     },
   };
 
-  const colors = severityColors[current.severity];
+  const colors = severityColors[highestSeverity];
   const colorClass = isDark ? colors.dark : colors.light;
 
-  const typeIcons: Record<string, React.ReactNode> = {
-    typhoon: (
-      <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2a10 10 0 0 1 0 20 10 10 0 0 1 0-20" />
-        <path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0" />
-        <path d="M12 2c3 4 4 8 0 10s-3 6 0 10" />
-      </svg>
-    ),
-    earthquake: (
-      <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 12h2l3-9 4 18 4-18 3 9h4" />
-      </svg>
-    ),
-    water: (
-      <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-      </svg>
-    ),
-    advisory: (
-      <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-        <line x1="12" y1="9" x2="12" y2="13" />
-        <line x1="12" y1="17" x2="12.01" y2="17" />
-      </svg>
-    ),
-  };
+  // Build the full marquee text — all alerts concatenated with separators
+  const marqueeText = alerts.map(a => {
+    const typeLabel = a.type === "typhoon" ? "TYPHOON" : a.type === "earthquake" ? "EARTHQUAKE" : a.type === "water" ? "WATER LEVEL" : "ADVISORY";
+    return `[${typeLabel}] ${a.message}`;
+  }).join("     ///     ");
 
   return (
     <div className={`shrink-0 border-b px-3 py-1.5 flex items-center gap-3 transition-colors ${colorClass}`}>
       {/* Severity dot */}
       <div className="flex items-center gap-2 shrink-0">
         <div className={`w-2 h-2 rounded-full ${colors.dot} animate-pulse`} />
-        <span className={colors.icon}>{typeIcons[current.type] || typeIcons.advisory}</span>
+        <span className="text-[9px] font-mono font-bold tracking-wider shrink-0">ALERT</span>
       </div>
 
-      {/* Alert message */}
-      <div ref={scrollRef} className="flex-1 overflow-hidden">
-        <p className="text-[11px] font-mono font-semibold tracking-wide whitespace-nowrap animate-[scroll_20s_linear_infinite]">
-          {current.message}
-        </p>
+      {/* Continuous looping marquee */}
+      <div className="flex-1 overflow-hidden relative">
+        <div className="marquee-loop whitespace-nowrap">
+          <span className="text-[11px] font-mono font-semibold tracking-wide inline-block">
+            {marqueeText}
+            <span className="inline-block w-[100vw]" />
+            {marqueeText}
+          </span>
+        </div>
       </div>
 
-      {/* Alert count badge */}
+      {/* Alert count */}
       {alerts.length > 1 && (
-        <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
-          isDark ? "bg-[oklch(0.20_0.02_260)] text-[oklch(0.70_0.01_260)]" : "bg-[oklch(0.90_0.01_260)] text-[oklch(0.40_0.015_260)]"
-        }`}>
-          {currentIndex + 1}/{alerts.length}
+        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 bg-secondary text-muted-foreground">
+          {alerts.length} alerts
         </span>
       )}
 
       {/* Dismiss button */}
       <button
         onClick={() => setIsVisible(false)}
-        className={`shrink-0 w-5 h-5 flex items-center justify-center rounded transition-colors ${
-          isDark ? "hover:bg-[oklch(0.25_0.02_260)] text-[oklch(0.55_0.01_260)]" : "hover:bg-[oklch(0.88_0.01_260)] text-[oklch(0.50_0.015_260)]"
-        }`}
+        className="shrink-0 w-5 h-5 flex items-center justify-center rounded transition-colors hover:bg-secondary text-muted-foreground"
         title="Dismiss alerts"
       >
         <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

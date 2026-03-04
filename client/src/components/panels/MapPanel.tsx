@@ -21,8 +21,11 @@ import {
 } from "@/lib/feeds";
 import { searchProvinces, type Province } from "@/lib/provinces";
 
-// Light basemap style (CARTO Voyager — clean white map like UP Project NOAH)
-const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+// Basemap styles
+const MAP_STYLE_VOYAGER = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+const MAP_STYLE_SATELLITE = "https://api.maptiler.com/maps/hybrid/style.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL";
+// Use free ESRI satellite tiles as raster fallback
+const ESRI_SATELLITE_TILES = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 // Critical facilities GeoJSON from NOAH S3
 const CRITICAL_FACILITIES = {
@@ -117,11 +120,14 @@ export default function MapPanel() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertDismissed, setAlertDismissed] = useState<Set<string>>(new Set());
 
-  // Province search state
+  // Location search state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Province[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Satellite toggle
+  const [isSatellite, setIsSatellite] = useState(false);
 
   // Radar state
   const radarTimestampRef = useRef<string>("");
@@ -135,7 +141,7 @@ export default function MapPanel() {
 
     const map = new maplibregl.Map({
       container: mapRef.current,
-      style: MAP_STYLE,
+      style: MAP_STYLE_VOYAGER,
       center: [121.774, 12.8797],
       zoom: 5.5,
       maxBounds: [[110, 2], [135, 22]],
@@ -1055,7 +1061,41 @@ export default function MapPanel() {
     }
   }, [showEqHeatmap, mapReady]);
 
-  // Province search handler
+  // Satellite basemap toggle
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || !mapReady) return;
+
+    if (isSatellite) {
+      // Add ESRI satellite raster source and layer
+      if (!map.getSource("satellite-tiles")) {
+        map.addSource("satellite-tiles", {
+          type: "raster",
+          tiles: [ESRI_SATELLITE_TILES],
+          tileSize: 256,
+          attribution: "ESRI World Imagery",
+        });
+      }
+      if (!map.getLayer("satellite-layer")) {
+        // Insert below all existing layers
+        const firstLayerId = map.getStyle().layers?.[0]?.id;
+        map.addLayer({
+          id: "satellite-layer",
+          type: "raster",
+          source: "satellite-tiles",
+          paint: { "raster-opacity": 1 },
+        }, firstLayerId);
+      } else {
+        map.setLayoutProperty("satellite-layer", "visibility", "visible");
+      }
+    } else {
+      if (map.getLayer("satellite-layer")) {
+        map.setLayoutProperty("satellite-layer", "visibility", "none");
+      }
+    }
+  }, [isSatellite, mapReady]);
+
+  // Location search handler
   const handleSearchInput = useCallback((value: string) => {
     setSearchQuery(value);
     if (value.trim().length > 0) {
@@ -1143,6 +1183,17 @@ export default function MapPanel() {
 
       <div ref={mapRef} className="h-full w-full" />
 
+      {/* Satellite toggle button */}
+      <button
+        onClick={() => setIsSatellite(v => !v)}
+        className={`absolute top-2 right-12 z-[1001] w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md shadow-lg border transition-colors ${
+          isSatellite ? "bg-blue-600 border-blue-500 text-white hover:bg-blue-700" : "bg-white/90 border-gray-200 hover:bg-white"
+        }`}
+        title={isSatellite ? "Switch to Map view" : "Switch to Satellite view"}
+      >
+        <svg className={`w-4 h-4 ${isSatellite ? "text-white" : "text-gray-700"}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+      </button>
+
       {/* Fullscreen toggle button */}
       <button
         onClick={() => setIsFullscreen(v => !v)}
@@ -1164,7 +1215,7 @@ export default function MapPanel() {
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search province..."
+              placeholder="Search location..."
               value={searchQuery}
               onChange={(e) => handleSearchInput(e.target.value)}
               onFocus={() => setShowSearch(true)}
@@ -1181,12 +1232,21 @@ export default function MapPanel() {
           {showSearch && searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden max-h-64 overflow-y-auto">
               {searchResults.map((p) => (
-                <button key={p.name} onMouseDown={(e) => e.preventDefault()} onClick={() => flyToProvince(p)} className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0">
-                  <div className="text-xs font-semibold text-gray-800">{p.name}</div>
+                <button key={`${p.name}-${p.region}`} onMouseDown={(e) => e.preventDefault()} onClick={() => flyToProvince(p)} className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-gray-800">{p.name}</span>
+                    {p.type && p.type !== "province" && (
+                      <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${
+                        p.type === "city" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                      }`}>
+                        {p.type === "city" ? "CITY" : "MUNI"}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[10px] text-gray-500">{p.region}</div>
                 </button>
               ))}
-              <div className="px-3 py-1.5 text-[9px] text-gray-400 bg-gray-50">Selecting a province auto-enables all hazard layers</div>
+              <div className="px-3 py-1.5 text-[9px] text-gray-400 bg-gray-50">Selecting a location auto-enables hazard layers</div>
             </div>
           )}
         </div>
@@ -1462,7 +1522,7 @@ export default function MapPanel() {
 
       {/* Attribution — positioned below the MapLibre zoom +/- controls */}
       <div className="absolute bottom-2 right-2 z-[1000] flex flex-col items-end gap-0.5">
-        <div className="text-[7px] text-[oklch(0.45_0.01_260)] font-mono">CARTO / OpenStreetMap</div>
+        <div className="text-[7px] text-[oklch(0.45_0.01_260)] font-mono">{isSatellite ? "ESRI Satellite" : "CARTO / OpenStreetMap"}</div>
         <div className="text-[7px] text-[oklch(0.45_0.01_260)] font-mono">Data: USGS / GDACS / PAGASA / UPRI-NOAH / PHIVOLCS / RainViewer</div>
       </div>
 

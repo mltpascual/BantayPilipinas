@@ -1,6 +1,6 @@
-// Design: "Ops Center Noir" — Weather dashboard for PH cities
+// Design: "Ops Center" — Weather dashboard for PH cities
 // Temperature color-coded, weather icons, wind data
-// Compact layout to fit more cities in smaller panel
+// Theme-aware colors for light/dark mode
 
 import { useEffect, useState } from "react";
 import PanelWrapper from "@/components/PanelWrapper";
@@ -38,7 +38,7 @@ export default function WeatherPanel() {
   return (
     <PanelWrapper title="Weather" icon="WX" status={loading ? "idle" : "active"}>
       {loading && weather.length === 0 ? (
-        <div className="flex items-center justify-center h-full text-[oklch(0.50_0.01_260)] text-xs font-mono">
+        <div className="flex items-center justify-center h-full text-muted-foreground text-xs font-mono">
           Loading weather...
         </div>
       ) : (
@@ -46,14 +46,14 @@ export default function WeatherPanel() {
           {weather.map((w) => (
             <div
               key={w.city}
-              className="px-2 py-1.5 rounded bg-[oklch(0.15_0.02_260)] hover:bg-[oklch(0.18_0.02_260)] transition-colors"
+              className="px-2 py-1.5 rounded bg-secondary hover:bg-accent transition-colors"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[8px] font-bold font-mono px-1.5 py-1 rounded bg-[oklch(0.18_0.02_260)] text-[oklch(0.65_0.01_260)]">{getWeatherIcon(w.weathercode, w.is_day)}</span>
+                  <span className="text-[8px] font-bold font-mono px-1.5 py-1 rounded bg-muted text-muted-foreground">{getWeatherIcon(w.weathercode, w.is_day)}</span>
                   <div>
-                    <div className="text-[11px] font-semibold text-[oklch(0.88_0.005_260)]">{w.city}</div>
-                    <div className="text-[9px] text-[oklch(0.50_0.01_260)]">
+                    <div className="text-[11px] font-semibold text-foreground">{w.city}</div>
+                    <div className="text-[9px] text-muted-foreground">
                       {getWeatherDescription(w.weathercode)}
                     </div>
                   </div>
@@ -65,15 +65,15 @@ export default function WeatherPanel() {
                   >
                     {w.temperature}°
                   </div>
-                  <div className="text-[8px] text-[oklch(0.45_0.01_260)] font-mono">
+                  <div className="text-[8px] text-muted-foreground font-mono">
                     {w.windspeed} km/h {getWindDir(w.winddirection)}
                   </div>
                 </div>
               </div>
             </div>
           ))}
-          <div className="text-[8px] text-[oklch(0.30_0.01_260)] font-mono text-center mt-1">
-            Open-Meteo API • Auto-refresh 10m
+          <div className="text-[8px] text-muted-foreground/60 font-mono text-center mt-1">
+            Open-Meteo API — Auto-refresh 10m
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
-// Design: "Ops Center Noir" — Live news streams with tab switching
+// Design: "Ops Center" — Live news streams with tab switching
 // Uses YouTube channel live embed URLs for PH news networks
-// Fallback to channel page embed if live stream not detected
+// Theme-aware colors for light/dark mode
 
 import { useState, useEffect, useCallback } from "react";
 import PanelWrapper from "@/components/PanelWrapper";
@@ -64,7 +64,6 @@ export default function LivestreamPanel() {
   }, []);
 
   const ch = CHANNELS[active];
-  // Use the YouTube channel live stream embed URL
   const embedUrl = `https://www.youtube.com/embed/live_stream?channel=${ch.channelId}&autoplay=1&mute=1`;
 
   return (
@@ -79,7 +78,7 @@ export default function LivestreamPanel() {
               className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
                 i === active
                   ? "text-white shadow-lg"
-                  : "bg-[oklch(0.18_0.02_260)] text-[oklch(0.60_0.01_260)] hover:text-[oklch(0.80_0.005_260)] hover:bg-[oklch(0.22_0.02_260)]"
+                  : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-accent"
               }`}
               style={i === active ? { backgroundColor: c.color } : undefined}
             >
@@ -112,7 +111,7 @@ export default function LivestreamPanel() {
           </div>
         </div>
 
-        <div className="text-[9px] text-[oklch(0.35_0.01_260)] font-mono shrink-0">
+        <div className="text-[9px] text-muted-foreground/60 font-mono shrink-0">
           YouTube Live — streams auto-detect. Channel may be offline between broadcasts.
         </div>
       </div>

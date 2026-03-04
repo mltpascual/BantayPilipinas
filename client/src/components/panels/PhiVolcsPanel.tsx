@@ -1,5 +1,5 @@
-// Design: "Ops Center Noir" — PhiVolcs earthquake list + GDACS disaster alerts
-// Red for critical, Yellow for moderate, Blue for info
+// Design: "Ops Center" — PhiVolcs earthquake list + GDACS disaster alerts
+// Theme-aware colors for light/dark mode
 
 import { useEffect, useState } from "react";
 import PanelWrapper from "@/components/PanelWrapper";
@@ -41,7 +41,7 @@ export default function PhiVolcsPanel() {
             className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
               tab === "quakes"
                 ? "bg-[#CE1126] text-white shadow-[0_0_8px_#CE112640]"
-                : "bg-[oklch(0.18_0.02_260)] text-[oklch(0.55_0.01_260)] hover:text-[oklch(0.80_0.005_260)]"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
           >
             Earthquakes ({earthquakes.length})
@@ -51,7 +51,7 @@ export default function PhiVolcsPanel() {
             className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
               tab === "disasters"
                 ? "bg-[#FF6B35] text-white shadow-[0_0_8px_#FF6B3540]"
-                : "bg-[oklch(0.18_0.02_260)] text-[oklch(0.55_0.01_260)] hover:text-[oklch(0.80_0.005_260)]"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
           >
             GDACS Alerts ({disasters.length})
@@ -62,7 +62,7 @@ export default function PhiVolcsPanel() {
           {tab === "quakes" ? (
             <div className="space-y-0.5">
               {loading && earthquakes.length === 0 ? (
-                <div className="flex items-center justify-center h-24 text-[oklch(0.50_0.01_260)] text-xs font-mono">
+                <div className="flex items-center justify-center h-24 text-muted-foreground text-xs font-mono">
                   Loading USGS data...
                 </div>
               ) : (
@@ -75,7 +75,7 @@ export default function PhiVolcsPanel() {
                       href={eq.properties.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block p-1.5 rounded hover:bg-[oklch(0.18_0.02_260)] transition-colors group"
+                      className="block p-1.5 rounded hover:bg-secondary transition-colors group"
                     >
                       <div className="flex items-center gap-2">
                         <div
@@ -85,7 +85,7 @@ export default function PhiVolcsPanel() {
                           {eq.properties.mag.toFixed(1)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[11px] text-[oklch(0.82_0.005_260)] leading-snug line-clamp-1 group-hover:text-white transition-colors">
+                          <div className="text-[11px] text-foreground leading-snug line-clamp-1 group-hover:text-primary transition-colors">
                             {eq.properties.place}
                           </div>
                           <div className="flex items-center gap-1.5 mt-0.5">
@@ -95,7 +95,7 @@ export default function PhiVolcsPanel() {
                             >
                               {label}
                             </span>
-                            <span className="text-[8px] font-mono text-[oklch(0.38_0.01_260)]">{time}</span>
+                            <span className="text-[8px] font-mono text-muted-foreground">{time}</span>
                           </div>
                         </div>
                       </div>
@@ -107,13 +107,13 @@ export default function PhiVolcsPanel() {
           ) : (
             <div className="space-y-0.5">
               {loading && disasters.length === 0 ? (
-                <div className="flex items-center justify-center h-24 text-[oklch(0.50_0.01_260)] text-xs font-mono">
+                <div className="flex items-center justify-center h-24 text-muted-foreground text-xs font-mono">
                   Loading GDACS data...
                 </div>
               ) : disasters.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-24 gap-1">
                   <span className="text-xs font-mono font-bold text-[#22C55E]">CLEAR</span>
-                  <div className="text-[oklch(0.40_0.01_260)] text-[10px] font-mono text-center">
+                  <div className="text-muted-foreground text-[10px] font-mono text-center">
                     No active GDACS alerts<br />for PH region
                   </div>
                 </div>
@@ -124,15 +124,15 @@ export default function PhiVolcsPanel() {
                     href={item.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block p-1.5 rounded hover:bg-[oklch(0.18_0.02_260)] transition-colors group"
+                    className="block p-1.5 rounded hover:bg-secondary transition-colors group"
                   >
                     <div className="flex items-start gap-2">
-                      <span className="text-[8px] font-bold font-mono shrink-0 px-1 py-0.5 rounded bg-[oklch(0.18_0.02_260)] text-[oklch(0.60_0.01_260)]">{eventIcons[item.eventType] || "--"}</span>
+                      <span className="text-[8px] font-bold font-mono shrink-0 px-1 py-0.5 rounded bg-secondary text-muted-foreground">{eventIcons[item.eventType] || "--"}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[11px] text-[oklch(0.82_0.005_260)] leading-snug line-clamp-2 group-hover:text-white transition-colors">
+                        <div className="text-[11px] text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                           {item.title}
                         </div>
-                        <div className="text-[8px] text-[oklch(0.38_0.01_260)] mt-0.5 font-mono">
+                        <div className="text-[8px] text-muted-foreground mt-0.5 font-mono">
                           {timeAgo(item.pubDate)}
                         </div>
                       </div>

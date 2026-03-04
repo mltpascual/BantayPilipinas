@@ -429,8 +429,15 @@
   cursor: pointer;
 }
 
-/* Alert banner scroll animation */
-@keyframes scroll {
+/* Alert banner continuous marquee loop */
+@keyframes marquee-scroll {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+.marquee-loop {
+  display: inline-block;
+  animation: marquee-scroll 30s linear infinite;
+}
+.marquee-loop:hover {
+  animation-play-state: paused;
 }

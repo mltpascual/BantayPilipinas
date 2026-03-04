@@ -1,6 +1,6 @@
-// Design: "Ops Center Noir" — News feed with source badges
-// Items slide in, source color-coded by outlet
-// Scrollable list with hover effects
+// Design: "Ops Center" — News feed with source badges
+// Theme-aware colors for light/dark mode
+// Filters to show only today's news (Philippine time)
 
 import { useEffect, useState } from "react";
 import PanelWrapper from "@/components/PanelWrapper";
@@ -13,6 +13,15 @@ const SOURCE_COLORS: Record<string, string> = {
   PhilStar: "#22C55E",
 };
 
+function isTodayPH(dateStr: string): boolean {
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return true; // include items with no valid date
+  // Get current date in PH timezone
+  const nowPH = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const itemPH = date.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  return nowPH === itemPH;
+}
+
 export default function NewsPanel() {
   const [news, setNews] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +30,9 @@ export default function NewsPanel() {
     const load = async () => {
       setLoading(true);
       const data = await fetchAllNews();
-      setNews(data);
+      // Filter to only today's news in Philippine time
+      const todayNews = data.filter((item) => isTodayPH(item.pubDate));
+      setNews(todayNews);
       setLoading(false);
     };
     load();
@@ -33,9 +44,16 @@ export default function NewsPanel() {
     <PanelWrapper title="News" icon="NEWS" status={loading ? "idle" : "active"}>
       {loading && news.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full gap-2">
-          <div className="text-xs font-mono font-bold text-[oklch(0.50_0.01_260)] animate-pulse">LOADING</div>
-          <div className="text-[oklch(0.50_0.01_260)] text-xs font-mono">
+          <div className="text-xs font-mono font-bold text-muted-foreground animate-pulse">LOADING</div>
+          <div className="text-muted-foreground text-xs font-mono">
             Loading feeds...
+          </div>
+        </div>
+      ) : news.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-full gap-2">
+          <div className="text-xs font-mono font-bold text-muted-foreground">NO NEWS TODAY</div>
+          <div className="text-muted-foreground text-[10px] font-mono text-center">
+            No news items found for today (PHT)
           </div>
         </div>
       ) : (
@@ -46,9 +64,9 @@ export default function NewsPanel() {
               href={item.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="block px-2 py-1.5 rounded hover:bg-[oklch(0.18_0.02_260)] transition-colors group"
+              className="block px-2 py-1.5 rounded hover:bg-secondary transition-colors group"
             >
-              <div className="text-[11px] font-medium text-[oklch(0.85_0.005_260)] leading-snug group-hover:text-white transition-colors line-clamp-2">
+              <div className="text-[11px] font-medium text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
                 {item.title}
               </div>
               <div className="flex items-center gap-2 mt-0.5">
@@ -61,7 +79,7 @@ export default function NewsPanel() {
                 >
                   {item.source}
                 </span>
-                <span className="text-[9px] text-[oklch(0.40_0.01_260)] font-mono">
+                <span className="text-[9px] text-muted-foreground font-mono">
                   {timeAgo(item.pubDate)}
                 </span>
               </div>

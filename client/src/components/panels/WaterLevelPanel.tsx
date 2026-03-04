@@ -1,9 +1,11 @@
-// Design: "Ops Center Noir" — Real-time water level monitoring
+// Design: "Ops Center" — Real-time water level monitoring
 // Philippine flag colors: Blue=normal, Yellow=alert, Orange=alarm, Red=critical
-// Data from PAGASA FFWS Metro Manila
+// Data from PAGASA FFWS — shows only latest reading per station
+// Theme-aware styling for light/dark mode
 
 import { useState, useEffect } from "react";
 import PanelWrapper from "@/components/PanelWrapper";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   fetchWaterLevels,
   getWaterLevelColor,
@@ -25,6 +27,8 @@ const STATUS_ICONS: Record<string, string> = {
 };
 
 export default function WaterLevelPanel() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [stations, setStations] = useState<WaterLevelStation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -74,11 +78,11 @@ export default function WaterLevelPanel() {
       <div className="flex flex-col h-full gap-1.5">
         {/* Header info */}
         <div className="flex items-center justify-between shrink-0">
-          <div className="text-[9px] font-mono text-[oklch(0.45_0.01_260)]">
+          <div className={`text-[9px] font-mono ${isDark ? "text-[oklch(0.45_0.01_260)]" : "text-[oklch(0.45_0.015_260)]"}`}>
             PAGASA FFWS — Metro Manila
           </div>
           {lastUpdate && (
-            <div className="text-[8px] font-mono text-[oklch(0.35_0.01_260)]">
+            <div className={`text-[8px] font-mono ${isDark ? "text-[oklch(0.35_0.01_260)]" : "text-[oklch(0.50_0.015_260)]"}`}>
               Updated: {lastUpdate}
             </div>
           )}
@@ -105,12 +109,12 @@ export default function WaterLevelPanel() {
           </div>
         )}
 
-        {/* Station list */}
+        {/* Station list — only latest reading */}
         <div className="flex-1 overflow-y-auto min-h-0 space-y-0.5 pr-0.5">
           {loading && (
             <div className="flex flex-col items-center justify-center h-full gap-2">
-              <div className="text-xs font-mono font-bold text-[oklch(0.50_0.01_260)] animate-pulse">LOADING</div>
-              <div className="text-[10px] text-[oklch(0.45_0.01_260)] font-mono">
+              <div className="text-xs font-mono font-bold text-muted-foreground animate-pulse">LOADING</div>
+              <div className="text-[10px] text-muted-foreground font-mono">
                 Loading water level data...
               </div>
             </div>
@@ -119,7 +123,7 @@ export default function WaterLevelPanel() {
           {error && (
             <div className="flex flex-col items-center justify-center h-full gap-2">
               <div className="text-xs font-mono font-bold text-[#FF6B35]">ERROR</div>
-              <div className="text-[10px] text-[oklch(0.45_0.01_260)] font-mono">
+              <div className="text-[10px] text-muted-foreground font-mono">
                 PAGASA FFWS unavailable
               </div>
             </div>
@@ -130,7 +134,9 @@ export default function WaterLevelPanel() {
             stations.map((station) => (
               <div
                 key={station.id}
-                className="group rounded px-2 py-1.5 transition-all hover:bg-[oklch(0.16_0.02_260)] border-l-2"
+                className={`group rounded px-2 py-1.5 transition-all border-l-2 ${
+                  isDark ? "hover:bg-[oklch(0.16_0.02_260)]" : "hover:bg-[oklch(0.94_0.005_80)]"
+                }`}
                 style={{ borderLeftColor: getWaterLevelColor(station.status) }}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -138,11 +144,13 @@ export default function WaterLevelPanel() {
                     <span className="text-[7px] font-bold font-mono px-1 py-0.5 rounded" style={{ background: getWaterLevelColor(station.status) + '22', color: getWaterLevelColor(station.status) }}>
                       {STATUS_ICONS[station.status]}
                     </span>
-                    <span className="text-[10px] font-semibold text-[oklch(0.85_0.005_260)] truncate">
+                    <span className={`text-[10px] font-semibold truncate ${isDark ? "text-[oklch(0.85_0.005_260)]" : "text-[oklch(0.20_0.02_260)]"}`}>
                       {station.name}
                     </span>
                     {station.name.includes("Dam") && (
-                      <span className="text-[7px] px-1 py-0.5 rounded bg-[oklch(0.20_0.03_260)] text-[#0038A8] font-bold shrink-0">
+                      <span className={`text-[7px] px-1 py-0.5 rounded font-bold shrink-0 ${
+                        isDark ? "bg-[oklch(0.20_0.03_260)] text-[#0038A8]" : "bg-[oklch(0.90_0.03_260)] text-[#0038A8]"
+                      }`}>
                         DAM
                       </span>
                     )}
@@ -154,18 +162,16 @@ export default function WaterLevelPanel() {
                     >
                       {station.currentWL}
                     </span>
-                    <span className="text-[8px] text-[oklch(0.40_0.01_260)] font-mono">
+                    <span className={`text-[8px] font-mono ${isDark ? "text-[oklch(0.40_0.01_260)]" : "text-[oklch(0.50_0.015_260)]"}`}>
                       EL.m
                     </span>
                   </div>
                 </div>
 
-                {/* Expanded details on hover */}
-                <div className="hidden group-hover:flex items-center gap-3 mt-1 text-[8px] font-mono text-[oklch(0.45_0.01_260)]">
-                  <span>-10m: {station.wl10m}</span>
-                  <span>-30m: {station.wl30m}</span>
-                  <span>-1h: {station.wl1h}</span>
-                  <span>-2h: {station.wl2h}</span>
+                {/* Expanded details on hover — show change only */}
+                <div className={`hidden group-hover:flex items-center gap-3 mt-1 text-[8px] font-mono ${
+                  isDark ? "text-[oklch(0.45_0.01_260)]" : "text-[oklch(0.50_0.015_260)]"
+                }`}>
                   {station.change !== "-" && (
                     <span
                       className={
@@ -176,14 +182,19 @@ export default function WaterLevelPanel() {
                             : ""
                       }
                     >
-                      Δ{station.change}
+                      Change: {station.change}
                     </span>
+                  )}
+                  {station.timestamp && (
+                    <span>Time: {station.timestamp}</span>
                   )}
                 </div>
 
                 {/* Threshold indicators */}
                 {(station.alertWL || station.alarmWL || station.criticalWL) && (
-                  <div className="hidden group-hover:flex items-center gap-2 mt-0.5 text-[7px] font-mono text-[oklch(0.35_0.01_260)]">
+                  <div className={`hidden group-hover:flex items-center gap-2 mt-0.5 text-[7px] font-mono ${
+                    isDark ? "text-[oklch(0.35_0.01_260)]" : "text-[oklch(0.50_0.015_260)]"
+                  }`}>
                     {station.alertWL && (
                       <span>Alert: {station.alertWL}m</span>
                     )}
@@ -199,9 +210,9 @@ export default function WaterLevelPanel() {
             ))}
         </div>
 
-        {/* Footer */}
-        <div className="text-[8px] text-[oklch(0.30_0.01_260)] font-mono shrink-0">
-          Source: PAGASA Flood Forecasting & Warning System • Hover for details
+        {/* Footer — Source attribution */}
+        <div className={`text-[8px] font-mono shrink-0 ${isDark ? "text-[oklch(0.30_0.01_260)]" : "text-[oklch(0.50_0.015_260)]"}`}>
+          Source: PAGASA Flood Forecasting & Warning System (FFWS) — Hover for details
         </div>
       </div>
     </PanelWrapper>

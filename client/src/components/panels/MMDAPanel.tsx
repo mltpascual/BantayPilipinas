@@ -1,6 +1,7 @@
-// Design: "Ops Center Noir" — MMDA Facebook embed + filtered news
+// Design: "Ops Center" — MMDA Facebook embed + filtered news
 // Yellow accent for traffic/MMDA content
-// MMDA is most active on Facebook (facebook.com/MMDAPH)
+// Theme-aware colors for light/dark mode
+// Note about Facebook embed availability
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import PanelWrapper from "@/components/PanelWrapper";
@@ -14,19 +15,16 @@ export default function MMDAPanel() {
   const fbLoaded = useRef(false);
   const [fbDimensions, setFbDimensions] = useState({ width: 340, height: 400 });
 
-  // Load Facebook SDK and render Page Plugin
   const loadFacebookSDK = useCallback(() => {
     if (fbLoaded.current) return;
     fbLoaded.current = true;
 
-    // Add FB SDK root div
     if (!document.getElementById("fb-root")) {
       const fbRoot = document.createElement("div");
       fbRoot.id = "fb-root";
       document.body.appendChild(fbRoot);
     }
 
-    // Load FB SDK
     if (!(window as any).FB) {
       const script = document.createElement("script");
       script.src = "https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v18.0";
@@ -49,7 +47,6 @@ export default function MMDAPanel() {
     }
   }, []);
 
-  // Measure container for responsive FB embed
   useEffect(() => {
     if (!fbContainerRef.current) return;
     const observer = new ResizeObserver((entries) => {
@@ -65,11 +62,9 @@ export default function MMDAPanel() {
     return () => observer.disconnect();
   }, []);
 
-  // Load FB SDK when facebook tab is active
   useEffect(() => {
     if (tab === "facebook") {
       loadFacebookSDK();
-      // Re-parse when switching back to facebook tab
       setTimeout(() => {
         if ((window as any).FB?.XFBML && fbContainerRef.current) {
           (window as any).FB.XFBML.parse(fbContainerRef.current);
@@ -78,7 +73,6 @@ export default function MMDAPanel() {
     }
   }, [tab, loadFacebookSDK]);
 
-  // Fetch MMDA-related news
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -112,7 +106,7 @@ export default function MMDAPanel() {
             className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
               tab === "facebook"
                 ? "bg-[#1877F2] text-white shadow-[0_0_8px_#1877F240]"
-                : "bg-[oklch(0.18_0.02_260)] text-[oklch(0.55_0.01_260)] hover:text-[oklch(0.80_0.005_260)]"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
           >
             MMDA Facebook
@@ -122,7 +116,7 @@ export default function MMDAPanel() {
             className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
               tab === "news"
                 ? "bg-[#FCD116] text-[#080b14] shadow-[0_0_8px_#FCD11640]"
-                : "bg-[oklch(0.18_0.02_260)] text-[oklch(0.55_0.01_260)] hover:text-[oklch(0.80_0.005_260)]"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
           >
             Traffic News ({news.length})
@@ -132,42 +126,48 @@ export default function MMDAPanel() {
         {/* Content */}
         <div className="flex-1 overflow-auto min-h-0">
           {tab === "facebook" ? (
-            <div ref={fbContainerRef} className="h-full w-full overflow-hidden">
-              <div
-                className="fb-page"
-                data-href="https://www.facebook.com/MMDAPH"
-                data-tabs="timeline"
-                data-width={fbDimensions.width}
-                data-height={fbDimensions.height}
-                data-small-header="true"
-                data-adapt-container-width="true"
-                data-hide-cover="false"
-                data-show-facepile="false"
-              >
-                <blockquote
-                  cite="https://www.facebook.com/MMDAPH"
-                  className="fb-xfbml-parse-ignore"
+            <div className="flex flex-col h-full">
+              <div ref={fbContainerRef} className="flex-1 w-full overflow-hidden">
+                <div
+                  className="fb-page"
+                  data-href="https://www.facebook.com/MMDAPH"
+                  data-tabs="timeline"
+                  data-width={fbDimensions.width}
+                  data-height={fbDimensions.height}
+                  data-small-header="true"
+                  data-adapt-container-width="true"
+                  data-hide-cover="false"
+                  data-show-facepile="false"
                 >
-                  <a href="https://www.facebook.com/MMDAPH" target="_blank" rel="noopener noreferrer">
-                    <div className="flex flex-col items-center justify-center h-32 gap-2">
-                      <svg className="w-8 h-8 text-[#1877F2]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                      <span className="text-[11px] font-semibold text-[oklch(0.70_0.01_260)]">Loading MMDA Facebook...</span>
-                      <span className="text-[9px] text-[oklch(0.45_0.01_260)]">facebook.com/MMDAPH</span>
-                    </div>
-                  </a>
-                </blockquote>
+                  <blockquote
+                    cite="https://www.facebook.com/MMDAPH"
+                    className="fb-xfbml-parse-ignore"
+                  >
+                    <a href="https://www.facebook.com/MMDAPH" target="_blank" rel="noopener noreferrer">
+                      <div className="flex flex-col items-center justify-center h-32 gap-2">
+                        <svg className="w-8 h-8 text-[#1877F2]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        <span className="text-[11px] font-semibold text-muted-foreground">Loading MMDA Facebook...</span>
+                        <span className="text-[9px] text-muted-foreground/70">facebook.com/MMDAPH</span>
+                      </div>
+                    </a>
+                  </blockquote>
+                </div>
+              </div>
+              {/* Note about FB embed availability */}
+              <div className="text-[8px] text-muted-foreground/60 font-mono mt-1 leading-relaxed shrink-0">
+                Note: Facebook embed may not load in some regions due to IP restrictions. Other viewers should see it normally. Try the Traffic News tab for an alternative.
               </div>
             </div>
           ) : (
             <div className="space-y-0.5">
               {loading && news.length === 0 ? (
-                <div className="flex items-center justify-center h-24 text-[oklch(0.50_0.01_260)] text-xs font-mono">
+                <div className="flex items-center justify-center h-24 text-muted-foreground text-xs font-mono">
                   Loading traffic news...
                 </div>
               ) : news.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-24 gap-1">
                   <span className="text-xs font-mono font-bold text-[#FCD116]">CLEAR</span>
-                  <div className="text-[oklch(0.40_0.01_260)] text-[10px] font-mono text-center">
+                  <div className="text-muted-foreground text-[10px] font-mono text-center">
                     No MMDA/traffic news found
                   </div>
                 </div>
@@ -178,14 +178,14 @@ export default function MMDAPanel() {
                     href={item.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block p-1.5 rounded hover:bg-[oklch(0.18_0.02_260)] transition-colors group border-l-2 border-[#FCD116]"
+                    className="block p-1.5 rounded hover:bg-secondary transition-colors group border-l-2 border-[#FCD116]"
                   >
-                    <div className="text-[11px] font-medium text-[oklch(0.82_0.005_260)] leading-snug group-hover:text-white transition-colors line-clamp-2 ml-1.5">
+                    <div className="text-[11px] font-medium text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2 ml-1.5">
                       {item.title}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 ml-1.5">
-                      <span className="text-[8px] font-mono text-[oklch(0.45_0.01_260)]">{item.source}</span>
-                      <span className="text-[8px] font-mono text-[oklch(0.35_0.01_260)]">{timeAgo(item.pubDate)}</span>
+                      <span className="text-[8px] font-mono text-muted-foreground">{item.source}</span>
+                      <span className="text-[8px] font-mono text-muted-foreground/70">{timeAgo(item.pubDate)}</span>
                     </div>
                   </a>
                 ))
@@ -197,4 +197,3 @@ export default function MMDAPanel() {
     </PanelWrapper>
   );
 }
-/* attribution + fb update */
