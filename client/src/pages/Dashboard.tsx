@@ -1,10 +1,10 @@
-// Design: "Ops Center Noir" — Main dashboard with draggable/resizable panels
-// Header with PH branding, PHT clock, panel toggles
-// react-grid-layout v2 API: gridConfig, dragConfig, resizeConfig
-// Layout: Map dominant (3/4 upper-left), streams right, news/data below
+// Design: "Ops Center" — Main dashboard with draggable/resizable panels
+// Space Grotesk headers, IBM Plex Sans body
+// Improved toggle readability, smooth theme transitions
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { GridLayout, verticalCompactor } from "react-grid-layout";
+import { useTheme } from "@/contexts/ThemeContext";
 
 import MapPanel from "@/components/panels/MapPanel";
 import NewsPanel from "@/components/panels/NewsPanel";
@@ -15,6 +15,7 @@ import MMDAPanel from "@/components/panels/MMDAPanel";
 import PhiVolcsPanel from "@/components/panels/PhiVolcsPanel";
 import WeatherPanel from "@/components/panels/WeatherPanel";
 import WaterLevelPanel from "@/components/panels/WaterLevelPanel";
+import PAGASABulletinBanner from "@/components/PAGASABulletinBanner";
 
 interface PanelConfig {
   id: string;
@@ -24,14 +25,6 @@ interface PanelConfig {
   defaultLayout: { x: number; y: number; w: number; h: number; minW?: number; minH?: number };
 }
 
-// New Layout: 12 columns
-// Upper area (y=0):
-//   Map (9w, 12h) — dominant 3/4 of upper area
-//   Right stack (3w): Livestream(3w,4h) + VolcanoCams(3w,4h) + Weather(3w,4h)
-// Lower area (y=12):
-//   News(3w,7h) | PhiVolcs(3w,7h) | Accidents(3w,7h) | MMDA(3w,7h)
-// Extra row (y=19):
-//   WaterLevel(4w,6h)
 const PANELS: PanelConfig[] = [
   { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 9, h: 12, minW: 4, minH: 6 } },
   { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 } },
@@ -53,6 +46,7 @@ function getDefaultLayout() {
 }
 
 export default function Dashboard() {
+  const { theme, toggleTheme } = useTheme();
   const [time, setTime] = useState(new Date());
   const [visiblePanels, setVisiblePanels] = useState<Set<string>>(
     new Set(PANELS.map((p) => p.id))
@@ -61,13 +55,11 @@ export default function Dashboard() {
   const [containerWidth, setContainerWidth] = useState(window.innerWidth - 16);
   const mainRef = useRef<HTMLDivElement>(null);
 
-  // Clock
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Track container width
   useEffect(() => {
     const handleResize = () => {
       if (mainRef.current) {
@@ -117,58 +109,107 @@ export default function Dashboard() {
   });
 
   const filteredLayout = layout.filter((l: any) => visiblePanels.has(l.i));
+  const isDark = theme === "dark";
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#080b14]">
+    <div
+      className="h-screen w-screen flex flex-col overflow-hidden bg-background"
+      style={{ transition: "background-color 0.3s ease" }}
+    >
+      {/* PAGASA Tropical Cyclone Bulletin Banner */}
+      <PAGASABulletinBanner />
+
       {/* Header */}
-      <header className="shrink-0 h-11 flex items-center px-4 gap-4 border-b border-[oklch(0.20_0.02_260)] bg-[oklch(0.09_0.015_260)] relative z-50">
+      <header
+        className="shrink-0 h-12 flex items-center px-4 gap-4 border-b border-border relative z-50 bg-card"
+        style={{
+          fontFamily: "'Space Grotesk', system-ui, sans-serif",
+          transition: "background-color 0.3s ease, border-color 0.3s ease",
+        }}
+      >
         <div className="flex items-center gap-4 w-full">
           {/* Brand */}
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded bg-gradient-to-br from-[#0038A8] to-[#001d5a] flex items-center justify-center shadow-lg shadow-[#0038A8]/20">
-              <span className="text-[10px] font-bold text-white">PH</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-[#0038A8] to-[#001d5a] flex items-center justify-center shadow-lg shadow-[#0038A8]/20">
+              <span className="text-[11px] font-bold text-white tracking-wide">PH</span>
             </div>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xs font-bold tracking-wider text-white">MISSION CONTROL</span>
-              <span className="text-[9px] text-[oklch(0.40_0.01_260)] font-mono">v1.0</span>
+              <span className="text-[13px] font-bold tracking-wider text-foreground">MISSION CONTROL</span>
+              <span className="text-[9px] font-mono text-muted-foreground">v1.0</span>
             </div>
           </div>
 
-          <div className="w-px h-5 bg-[oklch(0.22_0.02_260)]" />
+          <div className="w-px h-6 bg-border" />
 
           {/* Clock */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-mono font-bold text-[#FCD116] tabular-nums">{phtTime}</span>
-            <span className="text-[10px] font-mono text-[oklch(0.45_0.01_260)]">PHT</span>
-            <span className="text-[10px] text-[oklch(0.38_0.01_260)]">{phtDate}</span>
+            <span className={`text-sm font-mono font-bold tabular-nums ${isDark ? "text-ph-yellow" : "text-[#B8860B]"}`}>{phtTime}</span>
+            <span className="text-[10px] font-mono text-muted-foreground">PHT</span>
+            <span className="text-[10px] text-muted-foreground">{phtDate}</span>
           </div>
 
           <div className="flex-1" />
 
-          {/* Panel toggles */}
-          <div className="flex items-center gap-0.5">
-            {PANELS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => togglePanel(p.id)}
-                className={`text-[7px] font-bold font-mono tracking-wider w-auto px-1.5 h-7 flex items-center justify-center rounded transition-all ${
-                  visiblePanels.has(p.id)
-                    ? "bg-[oklch(0.20_0.03_260)] text-[oklch(0.85_0.005_260)] shadow-inner"
-                    : "bg-transparent text-[oklch(0.30_0.01_260)] hover:text-[oklch(0.55_0.01_260)]"
-                }`}
-                title={`Toggle ${p.title}`}
-              >
-                {p.icon}
-              </button>
-            ))}
+          {/* Panel toggles — improved readability */}
+          <div className="flex items-center gap-1">
+            {PANELS.map((p) => {
+              const isActive = visiblePanels.has(p.id);
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => togglePanel(p.id)}
+                  className={`text-[8px] font-bold font-mono tracking-wider px-2 h-7 flex items-center justify-center rounded-md transition-all duration-200 ${
+                    isActive
+                      ? "bg-primary/15 text-primary border border-primary/25"
+                      : "bg-transparent text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/50 border border-transparent"
+                  }`}
+                  title={`Toggle ${p.title}`}
+                >
+                  {p.icon}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="w-px h-5 bg-[oklch(0.22_0.02_260)]" />
+          <div className="w-px h-6 bg-border" />
+
+          {/* Theme toggle — more prominent */}
+          {toggleTheme && (
+            <button
+              onClick={toggleTheme}
+              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-200 ${
+                isDark
+                  ? "text-muted-foreground hover:text-ph-yellow hover:bg-secondary"
+                  : "text-muted-foreground hover:text-[#B8860B] hover:bg-secondary"
+              }`}
+              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {isDark ? (
+                <svg className="w-[18px] h-[18px]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+              ) : (
+                <svg className="w-[18px] h-[18px]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </button>
+          )}
+
+          <div className="w-px h-6 bg-border" />
 
           {/* Status indicator */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#22C55E] shadow-lg shadow-[#22C55E]/30 pulse-blue" />
-            <span className="text-[9px] font-mono font-semibold text-[oklch(0.50_0.01_260)] tracking-wider">ONLINE</span>
+            <span className="text-[10px] font-mono font-semibold tracking-wider text-muted-foreground">ONLINE</span>
           </div>
         </div>
       </header>
@@ -211,4 +252,3 @@ export default function Dashboard() {
     </div>
   );
 }
-// Layout v2 - Map dominant

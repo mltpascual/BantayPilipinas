@@ -32,15 +32,18 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --font-sans: 'Inter', system-ui, sans-serif;
+  /* Typography: Space Grotesk (display) + IBM Plex Sans (body) + JetBrains Mono (code) */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  /* Philippine flag colors */
+  /* Philippine flag colors — used as intentional accents */
   --color-ph-blue: oklch(0.40 0.15 260);
   --color-ph-red: oklch(0.55 0.22 25);
   --color-ph-yellow: oklch(0.85 0.17 85);
   --color-ph-navy: oklch(0.12 0.02 260);
 }
 
+/* Dark theme (default) — deep navy ops center */
 :root {
   --radius: 0.5rem;
   --background: oklch(0.10 0.015 260);
@@ -69,14 +72,46 @@
   --chart-5: oklch(0.70 0.12 300);
 }
 
+/* Light theme — warm paper-white with subtle warmth */
+.light {
+  --background: oklch(0.975 0.003 80);
+  --foreground: oklch(0.15 0.02 260);
+  --card: oklch(0.995 0.002 80);
+  --card-foreground: oklch(0.15 0.02 260);
+  --popover: oklch(0.995 0.002 80);
+  --popover-foreground: oklch(0.15 0.02 260);
+  --primary: oklch(0.42 0.18 260);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.94 0.008 80);
+  --secondary-foreground: oklch(0.25 0.02 260);
+  --muted: oklch(0.95 0.005 80);
+  --muted-foreground: oklch(0.42 0.015 260);
+  --accent: oklch(0.94 0.008 80);
+  --accent-foreground: oklch(0.15 0.02 260);
+  --destructive: oklch(0.50 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.90 0.008 80);
+  --input: oklch(0.94 0.006 80);
+  --ring: oklch(0.42 0.18 260);
+  --chart-1: oklch(0.42 0.18 260);
+  --chart-2: oklch(0.50 0.22 25);
+  --chart-3: oklch(0.70 0.17 85);
+  --chart-4: oklch(0.50 0.15 160);
+  --chart-5: oklch(0.55 0.12 300);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
     overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -91,10 +126,10 @@
   }
 }
 
-/* Custom scrollbar — crypto watchlist style */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -108,6 +143,12 @@
 }
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+.light ::-webkit-scrollbar-thumb {
+  background: oklch(0.78 0.01 260);
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.65 0.015 260);
 }
 
 /* React Grid Layout styles */
@@ -158,7 +199,6 @@
 .react-grid-item > .react-resizable-handle:hover::after {
   border-color: oklch(0.55 0.18 260);
 }
-/* All-corner resize handles */
 .react-resizable-handle-sw {
   bottom: 0;
   left: 0;
@@ -183,7 +223,7 @@
   transform: rotate(270deg);
 }
 
-/* Mapbox GL dark theme overrides */
+/* Mapbox GL theme overrides */
 .mapboxgl-ctrl-attrib {
   background: oklch(0.10 0.015 260 / 0.8) !important;
   color: oklch(0.50 0.01 260) !important;
@@ -205,6 +245,23 @@
 .mapboxgl-ctrl-group button span {
   filter: invert(1) brightness(0.85);
 }
+.light .mapboxgl-ctrl-attrib {
+  background: oklch(0.975 0.003 80 / 0.85) !important;
+  color: oklch(0.45 0.015 260) !important;
+}
+.light .mapboxgl-ctrl-attrib a {
+  color: oklch(0.40 0.15 260) !important;
+}
+.light .mapboxgl-ctrl-group {
+  background: oklch(0.995 0.002 80) !important;
+  border: 1px solid oklch(0.88 0.008 80) !important;
+  box-shadow: 0 1px 4px oklch(0 0 0 / 0.08) !important;
+}
+.light .mapboxgl-ctrl-group button span {
+  filter: none;
+}
+
+/* Map popup — dark */
 .noah-popup .mapboxgl-popup-content {
   background: oklch(0.16 0.02 260) !important;
   color: oklch(0.90 0.005 260) !important;
@@ -217,6 +274,17 @@
   border-top-color: oklch(0.16 0.02 260) !important;
   border-bottom-color: oklch(0.16 0.02 260) !important;
 }
+/* Map popup — light */
+.light .noah-popup .mapboxgl-popup-content {
+  background: oklch(0.995 0.002 80) !important;
+  color: oklch(0.15 0.02 260) !important;
+  box-shadow: 0 4px 20px oklch(0 0 0 / 0.10) !important;
+  border: 1px solid oklch(0.88 0.008 80 / 0.7) !important;
+}
+.light .noah-popup .mapboxgl-popup-tip {
+  border-top-color: oklch(0.995 0.002 80) !important;
+  border-bottom-color: oklch(0.995 0.002 80) !important;
+}
 .noah-popup .mapboxgl-popup-close-button {
   color: oklch(0.65 0.01 260) !important;
   font-size: 18px !important;
@@ -227,22 +295,39 @@
   background: transparent !important;
 }
 
-/* Panel glass effect */
+/* Panel glass effect — dark */
 .panel-glass {
   background: oklch(0.13 0.018 260 / 0.85);
   backdrop-filter: blur(12px);
   border: 1px solid oklch(0.28 0.02 260 / 0.5);
   border-radius: 0.5rem;
   box-shadow: 0 4px 24px oklch(0 0 0 / 0.3), inset 0 1px 0 oklch(1 0 0 / 0.03);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 .panel-glass:hover {
   border-color: oklch(0.35 0.03 260 / 0.6);
 }
+/* Panel glass effect — light */
+.light .panel-glass {
+  background: oklch(0.995 0.002 80 / 0.95);
+  border: 1px solid oklch(0.88 0.008 80 / 0.7);
+  box-shadow: 0 1px 8px oklch(0 0 0 / 0.05), 0 0 0 1px oklch(0 0 0 / 0.02);
+}
+.light .panel-glass:hover {
+  border-color: oklch(0.80 0.01 260 / 0.5);
+  box-shadow: 0 2px 12px oklch(0 0 0 / 0.08), 0 0 0 1px oklch(0 0 0 / 0.03);
+}
 
-/* Panel header gradient */
+/* Panel header gradient — dark */
 .panel-header {
   background: linear-gradient(180deg, oklch(0.18 0.025 260 / 0.9) 0%, oklch(0.14 0.02 260 / 0.7) 100%);
   border-bottom: 1px solid oklch(0.25 0.02 260 / 0.5);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+/* Panel header gradient — light */
+.light .panel-header {
+  background: linear-gradient(180deg, oklch(0.97 0.003 80 / 0.98) 0%, oklch(0.99 0.002 80 / 0.9) 100%);
+  border-bottom: 1px solid oklch(0.90 0.006 80 / 0.7);
 }
 
 /* Status dot pulse animation */
@@ -265,6 +350,21 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Panel entrance animation */
+@keyframes panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.panel-enter {
+  animation: panel-enter 0.4s ease-out forwards;
 }
 
 @layer components {
@@ -327,4 +427,10 @@
 /* Typhoon marker container */
 .typhoon-map-marker {
   cursor: pointer;
+}
+
+/* Alert banner scroll animation */
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }

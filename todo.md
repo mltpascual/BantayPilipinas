@@ -1,20 +1,17 @@
-# Dashboard Redesign & Data Audit
+# Dashboard Update Tasks
 
-## Layout Redesign
-- [ ] Map takes 3/4 upper-left area (dominant)
-- [ ] Livestream + Volcano Cams on right side
-- [ ] News panel below
-- [ ] Remove NOAH panel (data already on map)
+## Dark/Light Mode
+- [ ] Add theme toggle button to header
+- [ ] Create light theme CSS variables
+- [ ] Ensure all panels respect theme
 
-## Data Audit
-- [ ] Check which panels use simulated vs real data
-- [ ] Fix any simulated panels with real sources
+## PAGASA Tropical Cyclone Bulletin
+- [ ] Research PAGASA bulletin feed/scraper
+- [ ] Add bulletin section above news panel
 
-## MMDA Panel
-- [ ] Research MMDA RSS feed or social media source
-- [ ] Replace current MMDA implementation with real data
-
-## Final
-- [ ] Test all panels
-- [ ] Push to GitHub
-- [ ] Save checkpoint
+## Frontend Design Critique & Improvements
+- [ ] Audit typography
+- [ ] Audit color system
+- [ ] Audit spatial composition
+- [ ] Audit motion/interactions
+- [ ] Implement improvements
