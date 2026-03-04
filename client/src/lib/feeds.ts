@@ -51,6 +51,8 @@ export interface GDACSItem {
 
 export interface TyphoonData {
   id: string;
+  eventId: string;
+  episodeId: string;
   name: string;
   lat: number;
   lon: number;
@@ -419,6 +421,7 @@ export async function fetchTyphoons(): Promise<TyphoonData[]> {
       const lon = parseFloat(item.querySelector("long")?.textContent || "0");
       const eventName = item.querySelector("eventname")?.textContent || "Unknown";
       const eventId = item.querySelector("eventid")?.textContent || "";
+      const episodeId = item.querySelector("episodeid")?.textContent || "1";
       const alertLevel = item.querySelector("alertlevel")?.textContent || "Green";
       const country = item.querySelector("country")?.textContent || "";
       const link = item.querySelector("link")?.textContent || "";
@@ -436,6 +439,8 @@ export async function fetchTyphoons(): Promise<TyphoonData[]> {
 
       typhoons.push({
         id: `TC${eventId}`,
+        eventId,
+        episodeId,
         name: eventName,
         lat,
         lon,
@@ -555,5 +560,58 @@ export function getWaterLevelColor(status: string): string {
     case "alarm": return "#FF6B35";
     case "alert": return "#FCD116";
     default: return "#0038A8";
+  }
+}
+
+// ===== GDACS Typhoon Track Geometry =====
+
+export interface TyphoonTrackData {
+  trackLine: GeoJSON.Feature<GeoJSON.LineString>[];
+  cone: GeoJSON.Feature<GeoJSON.Polygon> | null;
+  windZones: GeoJSON.Feature<GeoJSON.Polygon>[];
+  trackPoints: { coords: [number, number]; label: string; category: string }[];
+}
+
+export async function fetchTyphoonTrack(eventId: string, episodeId: string): Promise<TyphoonTrackData | null> {
+  try {
+    const url = `https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=${eventId}&episodeid=${episodeId}`;
+    const resp = await fetch(`${CORS_PROXY_RAW}${encodeURIComponent(url)}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const geojson = await resp.json();
+    
+    if (!geojson.features || !Array.isArray(geojson.features)) return null;
+
+    const trackLine: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+    let cone: GeoJSON.Feature<GeoJSON.Polygon> | null = null;
+    const windZones: GeoJSON.Feature<GeoJSON.Polygon>[] = [];
+    const trackPoints: { coords: [number, number]; label: string; category: string }[] = [];
+
+    for (const feature of geojson.features) {
+      const cls = feature.properties?.Class || "";
+      const label = feature.properties?.polygonlabel || "";
+      const geomType = feature.geometry?.type;
+
+      if (cls.startsWith("Line_Line_") && geomType === "LineString") {
+        trackLine.push(feature);
+      } else if (cls === "Poly_Cones" && geomType === "Polygon") {
+        cone = feature;
+      } else if (cls.startsWith("Poly_") && cls !== "Poly_Cones" && geomType === "Polygon") {
+        windZones.push({ ...feature, properties: { ...feature.properties, severity: cls.replace("Poly_", "") } });
+      } else if (cls.startsWith("Point_Polygon_Point_") && geomType === "Polygon") {
+        // Extract centroid from the wind radius polygon
+        const coords = feature.geometry.coordinates[0];
+        if (coords && coords.length > 0) {
+          let sumLon = 0, sumLat = 0;
+          for (const c of coords) { sumLon += c[0]; sumLat += c[1]; }
+          const centroid: [number, number] = [sumLon / coords.length, sumLat / coords.length];
+          trackPoints.push({ coords: centroid, label, category: label });
+        }
+      }
+    }
+
+    return { trackLine, cone, windZones, trackPoints };
+  } catch (err) {
+    console.warn(`Failed to fetch typhoon track for event ${eventId}:`, err);
+    return null;
   }
 }
