@@ -284,3 +284,35 @@
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* Typhoon marker animations */
+@keyframes typhoon-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.typhoon-spin {
+  animation: typhoon-spin 4s linear infinite;
+}
+
+@keyframes typhoon-radius-pulse {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.18; }
+}
+.typhoon-radius-pulse {
+  animation: typhoon-radius-pulse 3s ease-in-out infinite;
+}
+
+@keyframes typhoon-eye-pulse {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.15); }
+}
+.typhoon-eye-pulse {
+  animation: typhoon-eye-pulse 2s ease-in-out infinite;
+}
+
+/* Typhoon marker container — remove default leaflet icon styles */
+.typhoon-marker {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
