@@ -68,9 +68,8 @@ function decodeHTMLEntities(text: string): string {
 }
 
 function stripHTML(html: string): string {
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return div.textContent || div.innerText || "";
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return doc.body.textContent || "";
 }
 
 // Primary: rss2json (more reliable, returns JSON) — with cache-busting

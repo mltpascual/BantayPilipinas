@@ -212,7 +212,7 @@ export default function Dashboard() {
           {mobilePanels.map((panel) => {
             const Component = panel.component;
             return (
-              <div key={panel.id} className={`${panel.mobileHeight} overflow-hidden`}>
+              <div key={panel.id} className={`${panel.mobileHeight} overflow-hidden`} style={panel.id === 'map' ? { height: '50vh' } : undefined}>
                 <Component />
               </div>
             );

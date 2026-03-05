@@ -49,6 +49,11 @@ const HAZARD_OUTLINES = {
   stormsurge: { 1: "rgba(180, 130, 255, 0.5)", 2: "rgba(220, 80, 180, 0.6)", 3: "rgba(206, 17, 38, 0.7)" },
 };
 
+// HTML escape utility to prevent XSS from external API data
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 // Alert types for the banner
 interface AlertItem {
   id: string;
@@ -144,7 +149,7 @@ export default function MapPanel() {
           id: `wl-${st.name}`,
           type: "waterlevel",
           severity: st.status === "critical" ? "critical" : "warning",
-          message: `${st.name} — ${st.status.toUpperCase()} (${st.currentWL}m)`,
+          message: `${escapeHtml(st.name)} — ${st.status.toUpperCase()} (${escapeHtml(String(st.currentWL))}m)`,
           timestamp: new Date(),
         });
       }
@@ -207,14 +212,14 @@ export default function MapPanel() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
                 </div>
                 <div>
-                  <div style="font-weight:700;font-size:13px;">${st.name}</div>
+                  <div style="font-weight:700;font-size:13px;">${escapeHtml(st.name)}</div>
                   <div style="font-size:10px;color:#6B7280;">PAGASA FFWS</div>
                 </div>
               </div>
               <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;">
                 <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
                   <span style="color:#6B7280;">Level</span>
-                  <span style="font-weight:700;font-family:'JetBrains Mono',monospace;">${st.currentWL || "N/A"} m</span>
+                  <span style="font-weight:700;font-family:'JetBrains Mono',monospace;">${escapeHtml(String(st.currentWL || "N/A"))} m</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;">
                   <span style="color:#6B7280;">Status</span>
