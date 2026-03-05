@@ -210,9 +210,22 @@ export default function WaterLevelPanel() {
             ))}
         </div>
 
-        {/* Footer — Source attribution */}
-        <div className={`text-[8px] font-mono shrink-0 ${isDark ? "text-[oklch(0.30_0.01_260)]" : "text-[oklch(0.50_0.015_260)]"}`}>
-          Source: PAGASA Flood Forecasting & Warning System (FFWS) — Hover for details
+        {/* Footer — Clickable source attribution */}
+        <div className={`flex items-center gap-1.5 shrink-0 pt-1 border-t ${isDark ? "border-[oklch(0.20_0.015_260)]" : "border-[oklch(0.90_0.008_80)]"}`}>
+          <svg className={`w-3 h-3 shrink-0 ${isDark ? "text-[oklch(0.35_0.01_260)]" : "text-[oklch(0.55_0.015_260)]"}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <a
+            href="http://121.58.193.173:8080/water/main_list.do"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`text-[8px] font-mono underline decoration-dotted underline-offset-2 transition-colors ${
+              isDark
+                ? "text-[oklch(0.45_0.08_260)] hover:text-[oklch(0.60_0.12_260)]"
+                : "text-[oklch(0.40_0.12_260)] hover:text-[oklch(0.35_0.18_260)]"
+            }`}
+          >
+            Source: PAGASA Flood Forecasting & Warning System (FFWS)
+          </a>
+          <svg className={`w-2.5 h-2.5 shrink-0 ${isDark ? "text-[oklch(0.30_0.01_260)]" : "text-[oklch(0.50_0.015_260)]"}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </div>
       </div>
     </PanelWrapper>
