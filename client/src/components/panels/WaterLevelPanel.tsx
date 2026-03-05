@@ -11,6 +11,7 @@ import {
   getWaterLevelColor,
   type WaterLevelStation,
 } from "@/lib/feeds";
+import { isDataFresh } from "@/lib/fetchUtils";
 
 const STATUS_LABELS: Record<string, string> = {
   normal: "NORMAL",
@@ -40,7 +41,9 @@ export default function WaterLevelPanel() {
       try {
         const data = await fetchWaterLevels();
         if (mounted) {
-          setStations(data);
+          // Filter to only stations with fresh data (within 48 hours)
+          const freshData = data.filter(s => !s.timestamp || isDataFresh(s.timestamp, 48));
+          setStations(freshData);
           setLoading(false);
           setError(false);
           if (data.length > 0 && data[0].timestamp) {

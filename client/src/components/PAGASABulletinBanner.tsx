@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { fetchViaProxy, fetchFresh } from "@/lib/fetchUtils";
 
 interface AlertItem {
   type: "typhoon" | "earthquake" | "water" | "advisory";
@@ -16,7 +17,8 @@ interface AlertItem {
 
 const PAGASA_CYCLONE_URL = "https://pubfiles.pagasa.dost.gov.ph/tamss/weather/cyclone.dat";
 const USGS_EQ_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=5&minlatitude=4&maxlatitude=22&minlongitude=115&maxlongitude=130&limit=5&orderby=time";
-const PAGASA_WATER_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("http://121.58.193.173:8080/water/main_list.do");
+// Water level URL — uses fetchViaProxy for cache-busting
+const PAGASA_WATER_BASE = "http://121.58.193.173:8080/water/main_list.do";
 
 /**
  * Parse cyclone.dat and validate that the data is current (within 48 hours).
@@ -89,30 +91,16 @@ function parseCycloneData(text: string): { name: string; category: string } | nu
  * Tries direct fetch first, then allorigins with cache-bust parameter.
  */
 async function fetchCycloneData(): Promise<string> {
-  const cacheBust = `_=${Date.now()}`;
-  
-  // Strategy 1: allorigins with cache-busting timestamp
+  // Strategy 1: allorigins proxy with cache-busting (via shared util)
   try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(PAGASA_CYCLONE_URL)}&${cacheBust}`;
-    const res = await fetch(proxyUrl, { 
-      signal: AbortSignal.timeout(8000),
-      cache: "no-store",
-    });
-    if (res.ok) {
-      return await res.text();
-    }
+    const res = await fetchViaProxy(PAGASA_CYCLONE_URL, { signal: AbortSignal.timeout(8000) });
+    if (res.ok) return await res.text();
   } catch { /* try next */ }
 
-  // Strategy 2: direct fetch (may work if PAGASA adds CORS headers in the future)
+  // Strategy 2: direct fetch with cache-busting (future CORS support)
   try {
-    const res = await fetch(`${PAGASA_CYCLONE_URL}?${cacheBust}`, { 
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-      mode: "cors",
-    });
-    if (res.ok) {
-      return await res.text();
-    }
+    const res = await fetchFresh(PAGASA_CYCLONE_URL, { signal: AbortSignal.timeout(5000), mode: "cors" });
+    if (res.ok) return await res.text();
   } catch { /* ignore */ }
 
   return "";
@@ -170,9 +158,10 @@ export default function PAGASABulletinBanner() {
 
       // 3. Check critical water levels
       try {
-        const res = await fetch(PAGASA_WATER_URL, { signal: AbortSignal.timeout(8000) });
+        const res = await fetchViaProxy(PAGASA_WATER_BASE, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
-          const data = await res.json();
+          const text = await res.text();
+          const data = text ? JSON.parse(text) : {};
           const stations = data?.stationlist || [];
           for (const station of stations) {
             const current = parseFloat(station.waterlevel);
@@ -206,7 +195,33 @@ export default function PAGASABulletinBanner() {
     return () => clearInterval(interval);
   }, []);
 
-  if (!isVisible || alerts.length === 0) return null;
+  // Show "No active alerts" status when no alerts are found
+  if (!isVisible) return null;
+  
+  if (alerts.length === 0) {
+    return (
+      <div className={`shrink-0 border-b px-3 py-1 flex items-center gap-2.5 transition-colors ${
+        isDark 
+          ? "bg-[oklch(0.14_0.01_160)] border-[oklch(0.22_0.03_160)] text-[oklch(0.55_0.04_160)]" 
+          : "bg-[oklch(0.97_0.005_160)] border-[oklch(0.90_0.02_160)] text-[oklch(0.50_0.04_160)]"
+      }`}>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className={`w-1.5 h-1.5 rounded-full ${
+            isDark ? "bg-[oklch(0.55_0.15_160)]" : "bg-[oklch(0.60_0.15_160)]"
+          }`} />
+          <span className="text-[9px] font-mono font-medium tracking-wider">STATUS</span>
+        </div>
+        <span className="text-[10px] font-mono tracking-wide">
+          No active alerts — System monitoring PAGASA, USGS, FFWS
+        </span>
+        <span className={`ml-auto text-[8px] font-mono ${
+          isDark ? "text-[oklch(0.40_0.02_160)]" : "text-[oklch(0.65_0.02_160)]"
+        }`}>
+          {new Date().toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false })} PHT
+        </span>
+      </div>
+    );
+  }
 
   // Determine highest severity for banner color
   const highestSeverity = alerts.some(a => a.severity === "critical") ? "critical"

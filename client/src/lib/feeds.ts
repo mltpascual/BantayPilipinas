@@ -1,6 +1,9 @@
 // Design: "Ops Center Noir" — Data fetching utilities
 // Philippine flag colors encode data: Blue=info, Red=alerts, Yellow=live
 // Uses rss2json as primary proxy, allorigins as fallback
+// Cache-busting and date validation via shared fetchUtils
+
+import { cacheBustUrl, isDataFresh } from "./fetchUtils";
 
 export interface FeedItem {
   title: string;
@@ -69,6 +72,14 @@ export interface TyphoonData {
 const CORS_PROXY_JSON = "https://api.allorigins.win/get?url=";
 const CORS_PROXY_RAW = "https://api.allorigins.win/raw?url=";
 
+// Helper: build proxy URL with cache-busting
+function proxyJsonUrl(targetUrl: string): string {
+  return cacheBustUrl(`${CORS_PROXY_JSON}${encodeURIComponent(targetUrl)}`);
+}
+function proxyRawUrl(targetUrl: string): string {
+  return cacheBustUrl(`${CORS_PROXY_RAW}${encodeURIComponent(targetUrl)}`);
+}
+
 function decodeHTMLEntities(text: string): string {
   const textarea = document.createElement("textarea");
   textarea.innerHTML = text;
@@ -81,9 +92,9 @@ function stripHTML(html: string): string {
   return div.textContent || div.innerText || "";
 }
 
-// Primary: rss2json (more reliable, returns JSON)
+// Primary: rss2json (more reliable, returns JSON) — with cache-busting
 async function fetchViaRss2Json(url: string, source: string): Promise<FeedItem[]> {
-  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+  const apiUrl = cacheBustUrl(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
   const response = await fetch(apiUrl);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
@@ -98,11 +109,11 @@ async function fetchViaRss2Json(url: string, source: string): Promise<FeedItem[]
   }));
 }
 
-// Fallback: allorigins JSON wrapper (more reliable CORS)
+// Fallback: allorigins JSON wrapper (more reliable CORS) — with cache-busting
 async function fetchViaAllOrigins(url: string, source: string): Promise<FeedItem[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
-  const response = await fetch(`${CORS_PROXY_JSON}${encodeURIComponent(url)}`, { signal: controller.signal });
+  const response = await fetch(proxyJsonUrl(url), { signal: controller.signal });
   clearTimeout(timeout);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const json = await response.json();
@@ -154,11 +165,14 @@ export async function fetchAllNews(): Promise<FeedItem[]> {
     if (r.status === "fulfilled") allItems.push(...r.value);
   });
 
-  return allItems.sort((a, b) => {
-    const dateA = new Date(a.pubDate).getTime() || 0;
-    const dateB = new Date(b.pubDate).getTime() || 0;
-    return dateB - dateA;
-  });
+  // Filter to only fresh items (within 48 hours)
+  return allItems
+    .filter(item => isDataFresh(item.pubDate, 48))
+    .sort((a, b) => {
+      const dateA = new Date(a.pubDate).getTime() || 0;
+      const dateB = new Date(b.pubDate).getTime() || 0;
+      return dateB - dateA;
+    });
 }
 
 export async function fetchAccidentNews(): Promise<FeedItem[]> {
@@ -180,6 +194,7 @@ export async function fetchAccidentNews(): Promise<FeedItem[]> {
       const text = `${item.title} ${item.description}`.toLowerCase();
       return keywords.some((kw) => text.includes(kw));
     })
+    .filter(item => isDataFresh(item.pubDate, 48))
     .sort((a, b) => {
       const dateA = new Date(a.pubDate).getTime() || 0;
       const dateB = new Date(b.pubDate).getTime() || 0;
@@ -189,8 +204,8 @@ export async function fetchAccidentNews(): Promise<FeedItem[]> {
 
 export async function fetchEarthquakes(): Promise<EarthquakeFeature[]> {
   try {
-    const url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minlatitude=4.5&maxlatitude=21.5&minlongitude=116&maxlongitude=127&limit=30&orderby=time";
-    const response = await fetch(url);
+    const url = cacheBustUrl("https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minlatitude=4.5&maxlatitude=21.5&minlongitude=116&maxlongitude=127&limit=30&orderby=time");
+    const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     return data.features || [];
@@ -212,8 +227,8 @@ export async function fetchWeather(): Promise<WeatherData[]> {
   try {
     const lats = PH_CITIES.map((c) => c.latitude).join(",");
     const lons = PH_CITIES.map((c) => c.longitude).join(",");
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current_weather=true`;
-    const response = await fetch(url);
+    const url = cacheBustUrl(`https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current_weather=true`);
+    const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
 
@@ -257,7 +272,7 @@ export async function fetchGDACS(): Promise<GDACSItem[]> {
   async function tryAllOrigins(): Promise<string> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
-    const response = await fetch(`${CORS_PROXY_JSON}${encodeURIComponent(gdacsUrl)}`, { signal: controller.signal });
+    const response = await fetch(proxyJsonUrl(gdacsUrl), { signal: controller.signal });
     clearTimeout(timeout);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const jsonResp = await response.json();
@@ -395,7 +410,7 @@ export async function fetchTyphoons(): Promise<TyphoonData[]> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
     const response = await fetch(
-      `${CORS_PROXY_JSON}${encodeURIComponent("https://www.gdacs.org/xml/rss.xml")}`,
+      proxyJsonUrl("https://www.gdacs.org/xml/rss.xml"),
       { signal: controller.signal }
     );
     clearTimeout(timeout);
@@ -502,9 +517,9 @@ export interface WaterLevelStation {
 
 export async function fetchWaterLevels(): Promise<WaterLevelStation[]> {
   async function tryFetch(): Promise<any[]> {
-    // Use allorigins JSON wrapper (raw endpoint hangs for this API)
+    // Use allorigins JSON wrapper (raw endpoint hangs for this API) — with cache-busting
     const response = await fetch(
-      `${CORS_PROXY_JSON}${encodeURIComponent("http://121.58.193.173:8080/water/main_list.do")}`
+      proxyJsonUrl("http://121.58.193.173:8080/water/main_list.do")
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const json = await response.json();
@@ -575,7 +590,7 @@ export interface TyphoonTrackData {
 export async function fetchTyphoonTrack(eventId: string, episodeId: string): Promise<TyphoonTrackData | null> {
   try {
     const url = `https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=${eventId}&episodeid=${episodeId}`;
-    const resp = await fetch(`${CORS_PROXY_RAW}${encodeURIComponent(url)}`);
+    const resp = await fetch(proxyRawUrl(url));
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const geojson = await resp.json();
     
