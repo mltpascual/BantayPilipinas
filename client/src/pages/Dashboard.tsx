@@ -15,6 +15,7 @@ import MMDAPanel from "@/components/panels/MMDAPanel";
 import PhiVolcsPanel from "@/components/panels/PhiVolcsPanel";
 import WeatherPanel from "@/components/panels/WeatherPanel";
 import WaterLevelPanel from "@/components/panels/WaterLevelPanel";
+import AirQualityPanel from "@/components/panels/AirQualityPanel";
 import PAGASABulletinBanner from "@/components/PAGASABulletinBanner";
 
 interface PanelConfig {
@@ -35,6 +36,7 @@ const PANELS: PanelConfig[] = [
   { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 6, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "mmda", title: "MMDA", icon: "MMDA", component: MMDAPanel, defaultLayout: { x: 9, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 0, y: 19, w: 4, h: 6, minW: 2, minH: 3 } },
+  { id: "airquality", title: "Air Quality", icon: "AQ", component: AirQualityPanel, defaultLayout: { x: 4, y: 19, w: 4, h: 6, minW: 2, minH: 3 } },
 ];
 
 function getDefaultLayout() {

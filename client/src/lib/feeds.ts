@@ -630,3 +630,65 @@ export async function fetchTyphoonTrack(eventId: string, episodeId: string): Pro
     return null;
   }
 }
+
+// ===== Air Quality Monitoring (Open-Meteo) =====
+
+export interface AirQualityData {
+  city: string;
+  latitude: number;
+  longitude: number;
+  usAqi: number;
+  pm25: number;
+  pm10: number;
+  ozone: number;
+  carbonMonoxide: number;
+  nitrogenDioxide: number;
+  sulphurDioxide: number;
+  uvIndex: number;
+}
+
+export function getAqiCategory(aqi: number): { label: string; color: string; bgColor: string } {
+  if (aqi <= 50) return { label: "Good", color: "#22C55E", bgColor: "rgba(34,197,94,0.15)" };
+  if (aqi <= 100) return { label: "Moderate", color: "#FCD116", bgColor: "rgba(252,209,22,0.15)" };
+  if (aqi <= 150) return { label: "Unhealthy (SG)", color: "#FF6B35", bgColor: "rgba(255,107,53,0.15)" };
+  if (aqi <= 200) return { label: "Unhealthy", color: "#CE1126", bgColor: "rgba(206,17,38,0.15)" };
+  if (aqi <= 300) return { label: "Very Unhealthy", color: "#8B008B", bgColor: "rgba(139,0,139,0.15)" };
+  return { label: "Hazardous", color: "#7E0023", bgColor: "rgba(126,0,35,0.15)" };
+}
+
+export async function fetchAirQuality(): Promise<AirQualityData[]> {
+  try {
+    const lats = PH_CITIES.map((c) => c.latitude).join(",");
+    const lons = PH_CITIES.map((c) => c.longitude).join(",");
+    const url = cacheBustUrl(
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lats}&longitude=${lons}&current=us_aqi,pm2_5,pm10,ozone,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,uv_index&timezone=Asia/Manila`
+    );
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+
+    const items = Array.isArray(data) ? data : [data];
+    return items.map((d: any, i: number) => ({
+      ...PH_CITIES[i],
+      usAqi: d.current?.us_aqi ?? 0,
+      pm25: d.current?.pm2_5 ?? 0,
+      pm10: d.current?.pm10 ?? 0,
+      ozone: d.current?.ozone ?? 0,
+      carbonMonoxide: d.current?.carbon_monoxide ?? 0,
+      nitrogenDioxide: d.current?.nitrogen_dioxide ?? 0,
+      sulphurDioxide: d.current?.sulphur_dioxide ?? 0,
+      uvIndex: d.current?.uv_index ?? 0,
+    }));
+  } catch (err) {
+    console.warn("Failed to fetch air quality:", err);
+    return [];
+  }
+}
+
+export function getUvLabel(uv: number): { label: string; color: string } {
+  if (uv <= 2) return { label: "Low", color: "#22C55E" };
+  if (uv <= 5) return { label: "Moderate", color: "#FCD116" };
+  if (uv <= 7) return { label: "High", color: "#FF6B35" };
+  if (uv <= 10) return { label: "Very High", color: "#CE1126" };
+  return { label: "Extreme", color: "#8B008B" };
+}
