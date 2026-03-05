@@ -12,9 +12,11 @@ import {
   getWaterLevelColor,
 } from "@/lib/feeds";
 import { searchProvinces, type Province } from "@/lib/provinces";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // Basemap styles
-const MAP_STYLE_VOYAGER = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+const MAP_STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+const MAP_STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 const ESRI_SATELLITE_TILES = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 // Critical facilities GeoJSON from NOAH S3
@@ -64,6 +66,8 @@ interface AlertItem {
 }
 
 export default function MapPanel() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -102,7 +106,7 @@ export default function MapPanel() {
 
     const map = new maplibregl.Map({
       container: mapRef.current,
-      style: MAP_STYLE_VOYAGER,
+      style: isDark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT,
       center: [121.774, 12.8797],
       zoom: 5.5,
       maxBounds: [[110, 2], [135, 22]],
@@ -558,6 +562,43 @@ export default function MapPanel() {
     }
   }, [showEvacCenters, mapReady]);
 
+  // Theme-aware map style switching
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || !mapReady) return;
+
+    // Save current view state
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+
+    // Switch base style based on theme
+    const targetStyle = isDark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT;
+    map.setStyle(targetStyle);
+
+    map.once("style.load", () => {
+      // Restore view
+      map.setCenter(center);
+      map.setZoom(zoom);
+
+      // Re-add satellite layer if it was active
+      if (isSatellite) {
+        map.addSource("satellite-tiles", {
+          type: "raster",
+          tiles: [ESRI_SATELLITE_TILES],
+          tileSize: 256,
+          attribution: "ESRI World Imagery",
+        });
+        const firstLayerId = map.getStyle().layers?.[0]?.id;
+        map.addLayer({
+          id: "satellite-layer",
+          type: "raster",
+          source: "satellite-tiles",
+          paint: { "raster-opacity": 1 },
+        }, firstLayerId);
+      }
+    });
+  }, [isDark, mapReady]);
+
   // Satellite basemap toggle
   useEffect(() => {
     const map = mapInstance.current;
@@ -628,8 +669,12 @@ export default function MapPanel() {
   const btnClass = (active: boolean) =>
     `flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[8px] sm:text-[9px] font-semibold tracking-wider transition-all border ${
       active
-        ? "bg-[oklch(0.18_0.02_260_/_0.95)] border-current shadow-sm"
-        : "bg-[oklch(0.12_0.015_260_/_0.9)] border-[oklch(0.25_0.02_260)] text-[oklch(0.45_0.01_260)]"
+        ? isDark
+          ? "bg-[oklch(0.18_0.02_260_/_0.95)] border-current shadow-sm"
+          : "bg-white/95 border-current shadow-sm"
+        : isDark
+          ? "bg-[oklch(0.12_0.015_260_/_0.9)] border-[oklch(0.25_0.02_260)] text-[oklch(0.45_0.01_260)]"
+          : "bg-white/80 border-gray-300 text-gray-500"
     }`;
 
   // Filter active alerts (not dismissed)
@@ -674,31 +719,31 @@ export default function MapPanel() {
       <button
         onClick={() => setIsSatellite(v => !v)}
         className={`absolute top-2 right-12 z-[1001] w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md shadow-lg border transition-colors ${
-          isSatellite ? "bg-blue-600 border-blue-500 text-white hover:bg-blue-700" : "bg-white/90 border-gray-200 hover:bg-white"
+          isSatellite ? "bg-blue-600 border-blue-500 text-white hover:bg-blue-700" : isDark ? "bg-[oklch(0.12_0.015_260_/_0.9)] border-[oklch(0.25_0.02_260)] hover:bg-[oklch(0.18_0.02_260)]" : "bg-white/90 border-gray-200 hover:bg-white"
         }`}
         title={isSatellite ? "Switch to Map view" : "Switch to Satellite view"}
       >
-        <svg className={`w-4 h-4 ${isSatellite ? "text-white" : "text-gray-700"}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <svg className={`w-4 h-4 ${isSatellite ? "text-white" : isDark ? "text-gray-400" : "text-gray-700"}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
       </button>
 
       {/* Fullscreen toggle button */}
       <button
         onClick={() => setIsFullscreen(v => !v)}
-        className="absolute top-2 right-2 z-[1001] w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 backdrop-blur-md shadow-lg border border-gray-200 hover:bg-white transition-colors"
+        className={`absolute top-2 right-2 z-[1001] w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md shadow-lg border transition-colors ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.9)] border-[oklch(0.25_0.02_260)] hover:bg-[oklch(0.18_0.02_260)]' : 'bg-white/90 border-gray-200 hover:bg-white'}`}
         title={isFullscreen ? "Exit fullscreen (ESC)" : "Fullscreen map"}
       >
         {isFullscreen ? (
-          <svg className="w-4 h-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+          <svg className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-700'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
         ) : (
-          <svg className="w-4 h-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+          <svg className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-700'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
         )}
       </button>
 
       {/* Location Search Bar */}
       <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} left-1/2 -translate-x-1/2 z-[1001] transition-all w-[calc(100%-5rem)] sm:w-auto`}>
         <div className="relative">
-          <div className={`flex items-center bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 transition-all ${showSearch ? "w-full sm:w-72" : "w-full sm:w-44"}`}>
-            <svg className="w-4 h-4 ml-3 text-gray-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <div className={`flex items-center backdrop-blur-md rounded-lg shadow-lg border transition-all ${showSearch ? "w-full sm:w-72" : "w-full sm:w-44"} ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.95)] border-[oklch(0.25_0.02_260)]' : 'bg-white/95 border-gray-200'}`}>
+            <svg className={`w-4 h-4 ml-3 shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               ref={searchInputRef}
               type="text"
@@ -707,7 +752,7 @@ export default function MapPanel() {
               onChange={(e) => handleSearchInput(e.target.value)}
               onFocus={() => setShowSearch(true)}
               onBlur={() => setTimeout(() => setShowSearch(false), 200)}
-              className="w-full px-2 py-2 text-xs bg-transparent outline-none text-gray-800 placeholder-gray-400"
+              className={`w-full px-2 py-2 text-xs bg-transparent outline-none ${isDark ? 'text-gray-200 placeholder-gray-500' : 'text-gray-800 placeholder-gray-400'}`}
             />
             {searchQuery && (
               <button onClick={() => { setSearchQuery(""); setSearchResults([]); }} className="mr-2 text-gray-400 hover:text-gray-600">
@@ -717,11 +762,11 @@ export default function MapPanel() {
           </div>
 
           {showSearch && searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden max-h-64 overflow-y-auto">
+            <div className={`absolute top-full left-0 right-0 mt-1 backdrop-blur-md rounded-lg shadow-lg border overflow-hidden max-h-64 overflow-y-auto ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.95)] border-[oklch(0.25_0.02_260)]' : 'bg-white/95 border-gray-200'}`}>
               {searchResults.map((p) => (
-                <button key={`${p.name}-${p.region}`} onMouseDown={(e) => e.preventDefault()} onClick={() => flyToProvince(p)} className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0">
+                <button key={`${p.name}-${p.region}`} onMouseDown={(e) => e.preventDefault()} onClick={() => flyToProvince(p)} className={`w-full px-3 py-2 text-left transition-colors last:border-0 ${isDark ? 'hover:bg-white/10 border-b border-white/5' : 'hover:bg-blue-50 border-b border-gray-100'}`}>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-semibold text-gray-800">{p.name}</span>
+                    <span className={`text-xs font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{p.name}</span>
                     {p.type && p.type !== "province" && (
                       <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${
                         p.type === "city" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
@@ -730,10 +775,10 @@ export default function MapPanel() {
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] text-gray-500">{p.region}</div>
+                  <div className={`text-[10px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{p.region}</div>
                 </button>
               ))}
-              <div className="px-3 py-1.5 text-[9px] text-gray-400 bg-gray-50">Selecting a location auto-enables hazard layers</div>
+              <div className={`px-3 py-1.5 text-[9px] ${isDark ? 'text-gray-500 bg-white/5' : 'text-gray-400 bg-gray-50'}`}>Selecting a location auto-enables hazard layers</div>
             </div>
           )}
         </div>
@@ -795,18 +840,18 @@ export default function MapPanel() {
       </div>
 
       {/* Legend overlay */}
-      <div className="absolute bottom-2 left-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2 sm:px-2.5 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-mono border border-[oklch(0.25_0.02_260_/_0.5)] max-h-[40vh] sm:max-h-[60vh] overflow-y-auto max-w-[45vw] sm:max-w-none">
+      <div className={`absolute bottom-2 left-2 z-[1000] backdrop-blur-md rounded-lg px-2 sm:px-2.5 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-mono max-h-[40vh] sm:max-h-[60vh] overflow-y-auto max-w-[45vw] sm:max-w-none border ${isDark ? 'bg-[oklch(0.10_0.015_260_/_0.92)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'bg-white/92 border-gray-200/60'}`}>
         {/* NOAH Hazards Legend */}
         {(showFlood || showLandslide || showStormSurge) && (
           <>
-            <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider">NOAH HAZARDS</div>
+            <div className={`mb-1 font-semibold text-[9px] tracking-wider ${isDark ? 'text-[oklch(0.55_0.01_260)]' : 'text-gray-500'}`}>NOAH HAZARDS</div>
             {showFlood && (
               <div className="mb-1">
                 <div className="text-[8px] text-[#41B6E6] font-semibold mb-0.5">Flood</div>
                 {[{ color: "rgba(65, 182, 230, 0.6)", label: "Low" }, { color: "rgba(30, 120, 220, 0.7)", label: "Medium" }, { color: "rgba(10, 50, 168, 0.8)", label: "High" }].map((item) => (
                   <div key={`flood-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
                     <span className="w-3 h-2 rounded-sm" style={{ background: item.color }} />
-                    <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
+                    <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -817,7 +862,7 @@ export default function MapPanel() {
                 {[{ color: "rgba(252, 209, 22, 0.6)", label: "Low" }, { color: "rgba(242, 153, 74, 0.7)", label: "Medium" }, { color: "rgba(206, 17, 38, 0.8)", label: "High" }].map((item) => (
                   <div key={`slide-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
                     <span className="w-3 h-2 rounded-sm" style={{ background: item.color }} />
-                    <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
+                    <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -828,7 +873,7 @@ export default function MapPanel() {
                 {[{ color: "rgba(180, 130, 255, 0.5)", label: "Low" }, { color: "rgba(220, 80, 180, 0.6)", label: "Medium" }, { color: "rgba(206, 17, 38, 0.7)", label: "High" }].map((item) => (
                   <div key={`surge-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
                     <span className="w-3 h-2 rounded-sm" style={{ background: item.color }} />
-                    <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
+                    <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -839,45 +884,45 @@ export default function MapPanel() {
         {/* Volcano Legend */}
         {showVolcano && (
           <>
-            <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">VOLCANO ZONES</div>
+            <div className={`mb-1 mt-1.5 font-semibold text-[9px] tracking-wider pt-1.5 border-t ${isDark ? 'text-[oklch(0.55_0.01_260)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'text-gray-500 border-gray-200'}`}>VOLCANO ZONES</div>
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="w-3 h-2 rounded-sm" style={{ background: "rgba(206, 17, 38, 0.5)" }} />
-              <span className="text-[oklch(0.70_0.005_260)]">PDZ (Permanent)</span>
+              <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>PDZ (Permanent)</span>
             </div>
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="w-3 h-2 rounded-sm border border-dashed border-orange-400" style={{ background: "rgba(255, 140, 0, 0.3)" }} />
-              <span className="text-[oklch(0.70_0.005_260)]">EDZ (Extended)</span>
+              <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>EDZ (Extended)</span>
             </div>
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#CE1126] border border-white" />
-              <span className="text-[oklch(0.70_0.005_260)]">Summit</span>
+              <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>Summit</span>
             </div>
           </>
         )}
 
-        <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">FACILITIES</div>
+        <div className={`mb-1 font-semibold text-[9px] tracking-wider pt-1.5 border-t ${isDark ? 'text-[oklch(0.55_0.01_260)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'text-gray-500 border-gray-200'}`}>FACILITIES</div>
         <div className="flex items-center gap-1.5 mb-0.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#00D4FF]" />
-          <span className="text-[oklch(0.70_0.005_260)]">Hospitals</span>
+          <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>Hospitals</span>
         </div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#FCD116]" />
-          <span className="text-[oklch(0.70_0.005_260)]">Schools</span>
+          <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>Schools</span>
         </div>
 
         {/* Evacuation Centers Legend */}
         {showEvacCenters && (
           <>
-            <div className="text-[oklch(0.55_0.01_260)] mb-1 mt-1.5 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">EVACUATION CENTERS</div>
+            <div className={`mb-1 mt-1.5 font-semibold text-[9px] tracking-wider pt-1.5 border-t ${isDark ? 'text-[oklch(0.55_0.01_260)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'text-gray-500 border-gray-200'}`}>EVACUATION CENTERS</div>
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#4CAF50]" />
-              <span className="text-[oklch(0.70_0.005_260)]">Shelter / Evac Center</span>
+              <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>Shelter / Evac Center</span>
             </div>
-            <div className="text-[8px] text-[oklch(0.50_0.01_260)]">Source: OSM / DSWD (6,424)</div>
+            <div className={`text-[8px] ${isDark ? 'text-[oklch(0.50_0.01_260)]' : 'text-gray-400'}`}>Source: OSM / DSWD (6,424)</div>
           </>
         )}
 
-        <div className="text-[oklch(0.55_0.01_260)] mb-1 font-semibold text-[9px] tracking-wider border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-1.5">WATER LEVELS</div>
+        <div className={`mb-1 font-semibold text-[9px] tracking-wider pt-1.5 border-t ${isDark ? 'text-[oklch(0.55_0.01_260)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'text-gray-500 border-gray-200'}`}>WATER LEVELS</div>
         {[
           { color: "#0038A8", label: "Normal" },
           { color: "#FCD116", label: "Alert" },
@@ -888,7 +933,7 @@ export default function MapPanel() {
             <svg className="w-3 h-3.5 shrink-0" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M14 0C14 0 0 14 0 22C0 28.627 6.268 34 14 34C21.732 34 28 28.627 28 22C28 14 14 0 14 0Z" fill={item.color}/>
             </svg>
-            <span className="text-[oklch(0.70_0.005_260)]">{item.label}</span>
+            <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
           </div>
         ))}
       </div>
@@ -897,8 +942,8 @@ export default function MapPanel() {
 
       {/* Attribution */}
       <div className="absolute bottom-2 right-2 z-[1000] flex flex-col items-end gap-0.5">
-        <div className="text-[7px] text-[oklch(0.45_0.01_260)] font-mono">{isSatellite ? "ESRI Satellite" : "CARTO / OpenStreetMap"}</div>
-        <div className="text-[7px] text-[oklch(0.45_0.01_260)] font-mono">Data: PAGASA / UPRI-NOAH / PHIVOLCS</div>
+        <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>{isSatellite ? "ESRI Satellite" : "CARTO / OpenStreetMap"}</div>
+        <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>Data: PAGASA / UPRI-NOAH / PHIVOLCS</div>
       </div>
 
       {/* Fullscreen ESC hint */}
