@@ -7,6 +7,7 @@
 import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { fetchViaProxy, fetchFresh } from "@/lib/fetchUtils";
+import { fetchAirQuality, getAqiCategory } from "@/lib/feeds";
 
 interface AlertItem {
   type: "typhoon" | "earthquake" | "water" | "advisory";
@@ -156,7 +157,23 @@ export default function PAGASABulletinBanner() {
         }
       } catch { /* ignore */ }
 
-      // 3. Check critical water levels
+      // 3. Check air quality — alert if any city AQI > 150 (Unhealthy)
+      try {
+        const aqData = await fetchAirQuality();
+        for (const city of aqData) {
+          if (city.usAqi > 150) {
+            const { label } = getAqiCategory(city.usAqi);
+            newAlerts.push({
+              type: "advisory",
+              severity: city.usAqi > 200 ? "critical" : "warning",
+              message: `AIR QUALITY ALERT: ${city.city} AQI ${city.usAqi} (${label}) — PM2.5: ${city.pm25.toFixed(1)} µg/m³`,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+      } catch { /* ignore */ }
+
+      // 4. Check critical water levels
       try {
         const res = await fetchViaProxy(PAGASA_WATER_BASE, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
@@ -250,7 +267,7 @@ export default function PAGASABulletinBanner() {
 
   // Build the full marquee text — all alerts concatenated with separators
   const marqueeText = alerts.map(a => {
-    const typeLabel = a.type === "typhoon" ? "🌀 TYPHOON" : a.type === "earthquake" ? "⚠ EARTHQUAKE" : a.type === "water" ? "🌊 WATER LEVEL" : "ADVISORY";
+    const typeLabel = a.type === "typhoon" ? "🌀 TYPHOON" : a.type === "earthquake" ? "⚠ EARTHQUAKE" : a.type === "water" ? "🌊 WATER LEVEL" : "💨 AIR QUALITY";
     return `[${typeLabel}] ${a.message}`;
   }).join("     ///     ");
 

@@ -221,6 +221,10 @@ const PH_CITIES = [
   { city: "Davao", latitude: 7.1907, longitude: 125.4553 },
   { city: "Baguio", latitude: 16.4023, longitude: 120.5960 },
   { city: "Tacloban", latitude: 11.2543, longitude: 124.9600 },
+  { city: "Zamboanga", latitude: 6.9214, longitude: 122.0790 },
+  { city: "Cagayan de Oro", latitude: 8.4542, longitude: 124.6319 },
+  { city: "General Santos", latitude: 6.1164, longitude: 125.1716 },
+  { city: "Angeles", latitude: 15.1450, longitude: 120.5887 },
 ];
 
 export async function fetchWeather(): Promise<WeatherData[]> {

@@ -13,9 +13,8 @@ import LivecamsPanel from "@/components/panels/LivecamsPanel";
 import AccidentsPanel from "@/components/panels/AccidentsPanel";
 import MMDAPanel from "@/components/panels/MMDAPanel";
 import PhiVolcsPanel from "@/components/panels/PhiVolcsPanel";
-import WeatherPanel from "@/components/panels/WeatherPanel";
 import WaterLevelPanel from "@/components/panels/WaterLevelPanel";
-import AirQualityPanel from "@/components/panels/AirQualityPanel";
+import WeatherAirQualityPanel from "@/components/panels/WeatherAirQualityPanel";
 import PAGASABulletinBanner from "@/components/PAGASABulletinBanner";
 
 interface PanelConfig {
@@ -30,13 +29,12 @@ const PANELS: PanelConfig[] = [
   { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 9, h: 12, minW: 4, minH: 6 } },
   { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 } },
   { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 4, minW: 2, minH: 3 } },
-  { id: "weather", title: "Weather", icon: "WX", component: WeatherPanel, defaultLayout: { x: 9, y: 8, w: 3, h: 4, minW: 2, minH: 3 } },
+  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 9, y: 8, w: 3, h: 5, minW: 2, minH: 4 } },
   { id: "news", title: "News", icon: "NEWS", component: NewsPanel, defaultLayout: { x: 0, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 3, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 6, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "mmda", title: "MMDA", icon: "MMDA", component: MMDAPanel, defaultLayout: { x: 9, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
   { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 0, y: 19, w: 4, h: 6, minW: 2, minH: 3 } },
-  { id: "airquality", title: "Air Quality", icon: "AQ", component: AirQualityPanel, defaultLayout: { x: 4, y: 19, w: 4, h: 6, minW: 2, minH: 3 } },
 ];
 
 function getDefaultLayout() {
