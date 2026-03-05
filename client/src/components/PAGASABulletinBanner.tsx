@@ -2,6 +2,7 @@
 // Fetches cyclone.dat from PAGASA pubfiles for active tropical cyclone data
 // Shows a continuously looping marquee banner
 // Also shows alerts for M5+ earthquakes and critical water levels
+// DATE VALIDATION: Only shows typhoon alerts if the latest data point is within 48 hours
 
 import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -17,24 +18,104 @@ const PAGASA_CYCLONE_URL = "https://pubfiles.pagasa.dost.gov.ph/tamss/weather/cy
 const USGS_EQ_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=5&minlatitude=4&maxlatitude=22&minlongitude=115&maxlongitude=130&limit=5&orderby=time";
 const PAGASA_WATER_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("http://121.58.193.173:8080/water/main_list.do");
 
+/**
+ * Parse cyclone.dat and validate that the data is current (within 48 hours).
+ * The file format is:
+ *   Line 1: STORMNAME{INTLNAME}
+ *   Lines 2+: TYPE,YYYY-MM-DD,HH:MM,lat,lon,extra
+ * 
+ * If the file is empty, has no lines, or the latest date is older than 48 hours,
+ * returns null (no active storm).
+ */
 function parseCycloneData(text: string): { name: string; category: string } | null {
   try {
-    const lines = text.trim().split("\n").filter(l => l.trim());
+    const trimmed = text.trim();
+    if (!trimmed || trimmed.length < 10) return null;
+
+    const lines = trimmed.split("\n").filter(l => l.trim());
     if (lines.length < 2) return null;
+
     const firstLine = lines[0].trim();
     if (firstLine.toLowerCase().includes("no tropical cyclone") || 
-        firstLine.toLowerCase().includes("none") ||
-        lines.length < 3) {
+        firstLine.toLowerCase().includes("none")) {
       return null;
     }
+
+    // Extract dates from data lines to check freshness
+    // Format: TYPE,YYYY-MM-DD,HH:MM,...
+    const now = Date.now();
+    const maxAge = 48 * 60 * 60 * 1000; // 48 hours in ms
+    let latestDate = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i].split(",");
+      if (parts.length >= 3) {
+        const dateStr = parts[1]?.trim();
+        const timeStr = parts[2]?.trim();
+        if (dateStr && timeStr) {
+          const dt = new Date(`${dateStr}T${timeStr}:00+08:00`); // PHT = UTC+8
+          if (!isNaN(dt.getTime()) && dt.getTime() > latestDate) {
+            latestDate = dt.getTime();
+          }
+        }
+      }
+    }
+
+    // If no valid dates found, or latest data is older than 48 hours, ignore
+    if (latestDate === 0 || (now - latestDate) > maxAge) {
+      return null;
+    }
+
+    // Extract storm name from first line
+    // Format: BASYANG{PENHA} or just a name
+    const nameMatch = firstLine.match(/^([A-Z]+)\{([A-Z]+)\}/i);
+    if (nameMatch) {
+      return { name: `${nameMatch[1]} (${nameMatch[2]})`, category: "Tropical Cyclone" };
+    }
+
+    // Fallback: try other patterns
     const data = lines.join(" ");
-    const nameMatch = data.match(/(?:typhoon|tropical storm|tropical depression|super typhoon|severe tropical storm)\s+"?([A-Z][A-Za-z]+)"?/i) 
+    const tcMatch = data.match(/(?:typhoon|tropical storm|tropical depression|super typhoon|severe tropical storm)\s+"?([A-Z][A-Za-z]+)"?/i) 
       || data.match(/"([A-Z][A-Za-z]+)"/);
-    const name = nameMatch ? nameMatch[1] : lines[0].trim().split(/\s+/)[0];
+    const name = tcMatch ? tcMatch[1] : firstLine.split(/\s+/)[0];
     return { name, category: "Tropical Cyclone" };
   } catch {
     return null;
   }
+}
+
+/**
+ * Fetch cyclone.dat using multiple proxy strategies with cache-busting.
+ * Tries direct fetch first, then allorigins with cache-bust parameter.
+ */
+async function fetchCycloneData(): Promise<string> {
+  const cacheBust = `_=${Date.now()}`;
+  
+  // Strategy 1: allorigins with cache-busting timestamp
+  try {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(PAGASA_CYCLONE_URL)}&${cacheBust}`;
+    const res = await fetch(proxyUrl, { 
+      signal: AbortSignal.timeout(8000),
+      cache: "no-store",
+    });
+    if (res.ok) {
+      return await res.text();
+    }
+  } catch { /* try next */ }
+
+  // Strategy 2: direct fetch (may work if PAGASA adds CORS headers in the future)
+  try {
+    const res = await fetch(`${PAGASA_CYCLONE_URL}?${cacheBust}`, { 
+      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
+      mode: "cors",
+    });
+    if (res.ok) {
+      return await res.text();
+    }
+  } catch { /* ignore */ }
+
+  return "";
 }
 
 export default function PAGASABulletinBanner() {
@@ -47,27 +128,21 @@ export default function PAGASABulletinBanner() {
     const fetchAlerts = async () => {
       const newAlerts: AlertItem[] = [];
 
-      // 1. Check PAGASA cyclone data
+      // 1. Check PAGASA cyclone data with date validation
       try {
-        const res = await fetch(
-          "https://api.allorigins.win/raw?url=" + encodeURIComponent(PAGASA_CYCLONE_URL),
-          { signal: AbortSignal.timeout(8000) }
-        );
-        if (res.ok) {
-          const text = await res.text();
-          const tc = parseCycloneData(text);
-          if (tc) {
-            newAlerts.push({
-              type: "typhoon",
-              severity: "critical",
-              message: `PAGASA TROPICAL CYCLONE ADVISORY: ${tc.category.toUpperCase()} "${tc.name}" is active in the Philippine Area of Responsibility`,
-              timestamp: new Date().toISOString(),
-            });
-          }
+        const text = await fetchCycloneData();
+        const tc = parseCycloneData(text);
+        if (tc) {
+          newAlerts.push({
+            type: "typhoon",
+            severity: "critical",
+            message: `PAGASA TROPICAL CYCLONE ADVISORY: ${tc.category.toUpperCase()} "${tc.name}" is active in the Philippine Area of Responsibility`,
+            timestamp: new Date().toISOString(),
+          });
         }
       } catch { /* ignore */ }
 
-      // 2. Check for M5+ earthquakes near Philippines
+      // 2. Check for M5+ earthquakes near Philippines (last 24 hours only)
       try {
         const res = await fetch(USGS_EQ_URL, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
@@ -160,7 +235,7 @@ export default function PAGASABulletinBanner() {
 
   // Build the full marquee text — all alerts concatenated with separators
   const marqueeText = alerts.map(a => {
-    const typeLabel = a.type === "typhoon" ? "TYPHOON" : a.type === "earthquake" ? "EARTHQUAKE" : a.type === "water" ? "WATER LEVEL" : "ADVISORY";
+    const typeLabel = a.type === "typhoon" ? "🌀 TYPHOON" : a.type === "earthquake" ? "⚠ EARTHQUAKE" : a.type === "water" ? "🌊 WATER LEVEL" : "ADVISORY";
     return `[${typeLabel}] ${a.message}`;
   }).join("     ///     ");
 
