@@ -10,7 +10,10 @@ import {
   WaterLevelStation,
   fetchWaterLevels,
   getWaterLevelColor,
+  GDACSItem,
+  fetchGDACS,
 } from "@/lib/feeds";
+import { isDataFresh } from "@/lib/fetchUtils";
 import { searchProvinces, type Province } from "@/lib/provinces";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -71,6 +74,7 @@ export default function MapPanel() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const gdacsMarkersRef = useRef<maplibregl.Marker[]>([]);
 
   const [waterLevels, setWaterLevels] = useState<WaterLevelStation[]>([]);
   const [showWaterLevels, setShowWaterLevels] = useState(true);
@@ -81,6 +85,8 @@ export default function MapPanel() {
   const [showStormSurge, setShowStormSurge] = useState(false);
   const [showVolcano, setShowVolcano] = useState(false);
   const [showEvacCenters, setShowEvacCenters] = useState(false);
+  const [showGDACS, setShowGDACS] = useState(true);
+  const [gdacsAlerts, setGdacsAlerts] = useState<GDACSItem[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [hazardLoading, setHazardLoading] = useState<Record<string, boolean>>({});
 
@@ -238,6 +244,110 @@ export default function MapPanel() {
       markersRef.current.push(marker);
     });
   }, [waterLevels, showWaterLevels, mapReady]);
+
+  // Fetch GDACS alerts
+  useEffect(() => {
+    let mounted = true;
+    const loadGDACS = async () => {
+      try {
+        const data = await fetchGDACS();
+        if (!mounted) return;
+        // Filter to only recent alerts (within ~23 hours)
+        const recent = data.filter(d => isDataFresh(d.pubDate, 23));
+        setGdacsAlerts(recent);
+      } catch (err) {
+        console.warn("Failed to fetch GDACS:", err);
+      }
+    };
+    loadGDACS();
+    const interval = setInterval(loadGDACS, 10 * 60 * 1000); // refresh every 10 min
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
+  // Render GDACS alert markers on the map
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+    const map = mapInstance.current;
+
+    // Clear existing GDACS markers
+    gdacsMarkersRef.current.forEach(m => m.remove());
+    gdacsMarkersRef.current = [];
+
+    if (!showGDACS) return;
+
+    gdacsAlerts.forEach((alert) => {
+      if (alert.lat === null || alert.lon === null) return;
+
+      // Color by severity
+      const severityColor = alert.severity === "high" ? "#CE1126"
+        : alert.severity === "medium" ? "#FF6B35"
+        : "#22C55E";
+
+      // Icon by event type
+      const eventIcons: Record<string, string> = {
+        earthquake: '<path d="M2 12l2-2 3 3 4-6 3 4 4-3 4 4" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+        cyclone: '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke="white" stroke-width="1.5" fill="none"/><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke="white" stroke-width="1.5" fill="none"/>',
+        flood: '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" stroke="white" stroke-width="2" fill="none"/>',
+        volcano: '<path d="m8 3 4 8 5-5 5 15H2L8 3z" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+        drought: '<circle cx="12" cy="12" r="5" stroke="white" stroke-width="2" fill="none"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="white" stroke-width="2" stroke-linecap="round"/>',
+        wildfire: '<path d="M12 12c0-3 2-5 2-8-3 2-6 5.5-6 8a4 4 0 0 0 8 0c0-1-.5-2-1.5-3-.5 1.5-1.5 3-2.5 3z" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,0.3)"/>',
+      };
+      const iconSvg = eventIcons[alert.eventType] || eventIcons.earthquake;
+
+      // Severity label
+      const severityLabel = alert.severity === "high" ? "RED"
+        : alert.severity === "medium" ? "ORANGE"
+        : "GREEN";
+
+      // Event type label
+      const typeLabel = alert.eventType.charAt(0).toUpperCase() + alert.eventType.slice(1);
+
+      // Time ago
+      const pubTime = new Date(alert.pubDate);
+      const hoursAgo = Math.round((Date.now() - pubTime.getTime()) / (1000 * 60 * 60));
+      const timeLabel = hoursAgo < 1 ? "< 1h ago" : `${hoursAgo}h ago`;
+
+      // Create pulsing marker element
+      const el = document.createElement("div");
+      el.style.cursor = "pointer";
+      el.innerHTML = `<div style="position:relative;width:32px;height:32px;">
+        <div style="position:absolute;inset:-4px;border-radius:50%;background:${severityColor};opacity:0.25;animation:gdacsPulse 2s ease-in-out infinite;"></div>
+        <div style="width:32px;height:32px;border-radius:50%;background:${severityColor};border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">${iconSvg}</svg>
+        </div>
+      </div>`;
+
+      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+        .setLngLat([alert.lon, alert.lat])
+        .setPopup(
+          new maplibregl.Popup({ className: "noah-popup", maxWidth: "300px" }).setHTML(`
+            <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="background:${severityColor};width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">${iconSvg}</svg>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;font-size:13px;line-height:1.3;">${escapeHtml(typeLabel)}</div>
+                  <div style="font-size:10px;color:#6B7280;">${escapeHtml(alert.country || "Global")} &middot; ${timeLabel}</div>
+                </div>
+              </div>
+              <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;margin-bottom:6px;">
+                <div style="font-size:11px;font-weight:600;margin-bottom:4px;line-height:1.3;">${escapeHtml(alert.title)}</div>
+                <div style="font-size:10px;color:#6B7280;line-height:1.3;">${escapeHtml(alert.description.slice(0, 200))}</div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="background:${severityColor};color:white;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">${severityLabel} ALERT</span>
+                ${alert.link ? `<a href="${escapeHtml(alert.link)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:#0038A8;text-decoration:underline;font-weight:600;">View on GDACS &rarr;</a>` : ""}
+              </div>
+              <div style="font-size:9px;color:#6B7280;margin-top:4px;">Source: GDACS (Global Disaster Alert &amp; Coordination System)</div>
+            </div>
+          `)
+        )
+        .addTo(map);
+
+      gdacsMarkersRef.current.push(marker);
+    });
+  }, [gdacsAlerts, showGDACS, mapReady]);
 
   // Add NOAH hazard layer
   const addHazardLayer = useCallback(async (hazardType: string, propKey: string, url: string) => {
@@ -665,6 +775,7 @@ export default function MapPanel() {
   const toggleStormSurge = useCallback(() => setShowStormSurge((v) => !v), []);
   const toggleVolcano = useCallback(() => setShowVolcano((v) => !v), []);
   const toggleEvacCenters = useCallback(() => setShowEvacCenters((v) => !v), []);
+  const toggleGDACS = useCallback(() => setShowGDACS((v) => !v), []);
 
   const btnClass = (active: boolean) =>
     `flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[8px] sm:text-[9px] font-semibold tracking-wider transition-all border ${
@@ -786,8 +897,11 @@ export default function MapPanel() {
 
       {/* Layer toggle controls */}
       <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} left-1 sm:left-2 z-[1000] flex flex-col gap-1 sm:gap-1.5 transition-all`}>
-        {/* Row 1: Water Levels + NOAH Hazard overlays */}
+        {/* Row 1: GDACS + Water Levels + NOAH Hazard overlays */}
         <div className="flex gap-1 flex-wrap">
+          <button onClick={toggleGDACS} className={btnClass(showGDACS)} style={showGDACS ? { color: "#FF4444", borderColor: "#FF4444" } : {}} title="Toggle GDACS Disaster Alerts (last 23h)">
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> GDACS{gdacsAlerts.length > 0 ? ` (${gdacsAlerts.length})` : ""}
+          </button>
           <button onClick={toggleWaterLevels} className={btnClass(showWaterLevels)} style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}} title="Toggle water level stations">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> WL
           </button>
@@ -841,6 +955,24 @@ export default function MapPanel() {
 
       {/* Legend overlay */}
       <div className={`absolute bottom-2 left-2 z-[1000] backdrop-blur-md rounded-lg px-2 sm:px-2.5 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-mono max-h-[40vh] sm:max-h-[60vh] overflow-y-auto max-w-[45vw] sm:max-w-none border ${isDark ? 'bg-[oklch(0.10_0.015_260_/_0.92)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'bg-white/92 border-gray-200/60'}`}>
+        {/* GDACS Alerts Legend */}
+        {showGDACS && gdacsAlerts.length > 0 && (
+          <>
+            <div className={`mb-1 font-semibold text-[9px] tracking-wider ${isDark ? 'text-[oklch(0.55_0.01_260)]' : 'text-gray-500'}`}>GDACS ALERTS</div>
+            {[
+              { color: "#CE1126", label: "Red (High)" },
+              { color: "#FF6B35", label: "Orange (Medium)" },
+              { color: "#22C55E", label: "Green (Low)" },
+            ].map((item) => (
+              <div key={`gdacs-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
+                <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ background: item.color }} />
+                <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
+              </div>
+            ))}
+            <div className={`text-[8px] mb-1 ${isDark ? 'text-[oklch(0.50_0.01_260)]' : 'text-gray-400'}`}>Last 23h only</div>
+          </>
+        )}
+
         {/* NOAH Hazards Legend */}
         {(showFlood || showLandslide || showStormSurge) && (
           <>
@@ -943,7 +1075,7 @@ export default function MapPanel() {
       {/* Attribution */}
       <div className="absolute bottom-2 right-2 z-[1000] flex flex-col items-end gap-0.5">
         <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>{isSatellite ? "ESRI Satellite" : "CARTO / OpenStreetMap"}</div>
-        <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>Data: PAGASA / UPRI-NOAH / PHIVOLCS</div>
+        <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>Data: PAGASA / UPRI-NOAH / PHIVOLCS / GDACS</div>
       </div>
 
       {/* Fullscreen ESC hint */}

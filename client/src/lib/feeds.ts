@@ -50,6 +50,10 @@ export interface GDACSItem {
   pubDate: string;
   eventType: string;
   severity: string;
+  lat: number | null;
+  lon: number | null;
+  country: string;
+  icon: string;
 }
 
 
@@ -241,6 +245,101 @@ export async function fetchWeather(): Promise<WeatherData[]> {
   }
 }
 
+// Parse GDACS RSS XML and extract coordinates from geo:lat/geo:long
+function parseGDACSXml(rawText: string): GDACSItem[] {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(rawText, "text/xml");
+  const items = xml.querySelectorAll("item");
+  const results: GDACSItem[] = [];
+
+  items.forEach((item) => {
+    const title = item.querySelector("title")?.textContent || "";
+    const desc = item.querySelector("description")?.textContent || "";
+    const link = item.querySelector("link")?.textContent || "";
+    const pubDate = item.querySelector("pubDate")?.textContent || "";
+
+    // Extract coordinates from geo:lat / geo:long or georss:point
+    let lat: number | null = null;
+    let lon: number | null = null;
+
+    // Try geo:lat and geo:long (namespace-aware)
+    const geoLat = item.getElementsByTagName("geo:lat")[0]?.textContent;
+    const geoLon = item.getElementsByTagName("geo:long")[0]?.textContent;
+    if (geoLat && geoLon) {
+      lat = parseFloat(geoLat);
+      lon = parseFloat(geoLon);
+    }
+
+    // Fallback: georss:point ("lat lon" format)
+    if (lat === null || lon === null) {
+      const georssPoint = item.getElementsByTagName("georss:point")[0]?.textContent;
+      if (georssPoint) {
+        const parts = georssPoint.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          lat = parseFloat(parts[0]);
+          lon = parseFloat(parts[1]);
+        }
+      }
+    }
+
+    // Validate coordinates
+    if (lat !== null && isNaN(lat)) lat = null;
+    if (lon !== null && isNaN(lon)) lon = null;
+
+    // Extract GDACS-specific fields
+    const country = item.getElementsByTagName("gdacs:country")[0]?.textContent || "";
+    const icon = item.getElementsByTagName("gdacs:icon")[0]?.textContent || "";
+
+    const text = `${title} ${desc}`.toLowerCase();
+    const isRelevant = text.includes("philipp") || text.includes("pacific") || text.includes("typhoon") || text.includes("tropical") || text.includes("south china") || text.includes("manila");
+
+    let eventType = "unknown";
+    const evtTag = item.getElementsByTagName("gdacs:eventtype")[0]?.textContent || "";
+    if (evtTag === "EQ") eventType = "earthquake";
+    else if (evtTag === "TC") eventType = "cyclone";
+    else if (evtTag === "FL") eventType = "flood";
+    else if (evtTag === "VO") eventType = "volcano";
+    else if (evtTag === "DR") eventType = "drought";
+    else if (evtTag === "WF") eventType = "wildfire";
+    else {
+      const titleLower = title.toLowerCase();
+      if (titleLower.includes("cyclone") || titleLower.includes("typhoon") || titleLower.includes("tropical")) eventType = "cyclone";
+      else if (titleLower.includes("earthquake")) eventType = "earthquake";
+      else if (titleLower.includes("flood")) eventType = "flood";
+      else if (titleLower.includes("volcano")) eventType = "volcano";
+    }
+
+    // Extract alert level from gdacs:alertlevel tag
+    const alertLevel = item.getElementsByTagName("gdacs:alertlevel")[0]?.textContent?.toLowerCase() || "";
+    let severity = "green";
+    if (alertLevel === "red") severity = "high";
+    else if (alertLevel === "orange") severity = "medium";
+    else if (alertLevel === "green") severity = "green";
+    else {
+      const titleLower = title.toLowerCase();
+      if (titleLower.includes("red") || titleLower.includes("alert 3")) severity = "high";
+      else if (titleLower.includes("orange") || titleLower.includes("alert 2")) severity = "medium";
+    }
+
+    if (isRelevant || results.length < 10) {
+      results.push({
+        title: decodeHTMLEntities(title).trim(),
+        description: stripHTML(decodeHTMLEntities(desc)).trim().slice(0, 300),
+        link: link.trim(),
+        pubDate,
+        eventType,
+        severity,
+        lat,
+        lon,
+        country,
+        icon,
+      });
+    }
+  });
+
+  return results;
+}
+
 export async function fetchGDACS(): Promise<GDACSItem[]> {
   const gdacsUrl = "https://www.gdacs.org/xml/rss.xml";
 
@@ -290,54 +389,26 @@ export async function fetchGDACS(): Promise<GDACSItem[]> {
         else if (titleLower.includes("orange") || titleLower.includes("alert 2")) severity = "medium";
 
         if (isRelevant || results.length < 10) {
-          results.push({ title, description: desc, link, pubDate, eventType, severity });
+          results.push({ title, description: desc, link, pubDate, eventType, severity, lat: null, lon: null, country: "", icon: "" });
         }
+      }
+      // rss2json doesn't preserve geo: namespace fields, so try allorigins for coordinates
+      if (results.length > 0) {
+        // Try to enrich with coordinates from allorigins XML
+        try {
+          const rawText = await tryAllOrigins();
+          const enriched = parseGDACSXml(rawText);
+          if (enriched.length > 0) return enriched.slice(0, 15);
+        } catch { /* fall back to results without coords */ }
       }
       return results.slice(0, 15);
     } catch {
       // Fall through to allorigins
     }
 
-    // Fallback: allorigins
+    // Fallback: allorigins (preserves geo: namespace for coordinates)
     const rawText = await tryAllOrigins();
-    const parser = new DOMParser();
-    const xml = parser.parseFromString(rawText, "text/xml");
-    const items = xml.querySelectorAll("item");
-    const results: GDACSItem[] = [];    
-
-    items.forEach((item) => {
-      const title = item.querySelector("title")?.textContent || "";
-      const desc = item.querySelector("description")?.textContent || "";
-      const link = item.querySelector("link")?.textContent || "";
-      const pubDate = item.querySelector("pubDate")?.textContent || "";
-
-      const text = `${title} ${desc}`.toLowerCase();
-      const isRelevant = text.includes("philipp") || text.includes("pacific") || text.includes("typhoon") || text.includes("tropical") || text.includes("south china") || text.includes("manila");
-
-      let eventType = "unknown";
-      const titleLower = title.toLowerCase();
-      if (titleLower.includes("cyclone") || titleLower.includes("typhoon") || titleLower.includes("tropical")) eventType = "cyclone";
-      else if (titleLower.includes("earthquake")) eventType = "earthquake";
-      else if (titleLower.includes("flood")) eventType = "flood";
-      else if (titleLower.includes("volcano")) eventType = "volcano";
-
-      let severity = "green";
-      if (titleLower.includes("red") || titleLower.includes("alert 3")) severity = "high";
-      else if (titleLower.includes("orange") || titleLower.includes("alert 2")) severity = "medium";
-
-      if (isRelevant || results.length < 10) {
-        results.push({
-          title: decodeHTMLEntities(title).trim(),
-          description: stripHTML(decodeHTMLEntities(desc)).trim().slice(0, 300),
-          link: link.trim(),
-          pubDate,
-          eventType,
-          severity,
-        });
-      }
-    });
-
-    return results.slice(0, 15);
+    return parseGDACSXml(rawText).slice(0, 15);
   } catch (err) {
     console.warn("Failed to fetch GDACS:", err);
     return [];
