@@ -621,7 +621,7 @@ export default function MapPanel() {
   const toggleEvacCenters = useCallback(() => setShowEvacCenters((v) => !v), []);
 
   const btnClass = (active: boolean) =>
-    `flex items-center gap-1 px-2 py-1 rounded text-[9px] font-semibold tracking-wider transition-all border ${
+    `flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[8px] sm:text-[9px] font-semibold tracking-wider transition-all border ${
       active
         ? "bg-[oklch(0.18_0.02_260_/_0.95)] border-current shadow-sm"
         : "bg-[oklch(0.12_0.015_260_/_0.9)] border-[oklch(0.25_0.02_260)] text-[oklch(0.45_0.01_260)]"
@@ -690,9 +690,9 @@ export default function MapPanel() {
       </button>
 
       {/* Location Search Bar */}
-      <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} left-1/2 -translate-x-1/2 z-[1001] transition-all`}>
+      <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} left-1/2 -translate-x-1/2 z-[1001] transition-all w-[calc(100%-5rem)] sm:w-auto`}>
         <div className="relative">
-          <div className={`flex items-center bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 transition-all ${showSearch ? "w-72" : "w-44"}`}>
+          <div className={`flex items-center bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 transition-all ${showSearch ? "w-full sm:w-72" : "w-full sm:w-44"}`}>
             <svg className="w-4 h-4 ml-3 text-gray-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               ref={searchInputRef}
@@ -735,7 +735,7 @@ export default function MapPanel() {
       </div>
 
       {/* Layer toggle controls */}
-      <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} left-2 z-[1000] flex flex-col gap-1.5 transition-all`}>
+      <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} left-1 sm:left-2 z-[1000] flex flex-col gap-1 sm:gap-1.5 transition-all`}>
         {/* Row 1: Water Levels */}
         <div className="flex gap-1">
           <button onClick={toggleWaterLevels} className={btnClass(showWaterLevels)} style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}} title="Toggle water level stations">
@@ -798,7 +798,7 @@ export default function MapPanel() {
       </div>
 
       {/* Legend overlay */}
-      <div className="absolute bottom-2 left-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2.5 py-2 text-[10px] font-mono border border-[oklch(0.25_0.02_260_/_0.5)] max-h-[60vh] overflow-y-auto">
+      <div className="absolute bottom-2 left-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2 sm:px-2.5 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-mono border border-[oklch(0.25_0.02_260_/_0.5)] max-h-[40vh] sm:max-h-[60vh] overflow-y-auto max-w-[45vw] sm:max-w-none">
         {/* NOAH Hazards Legend */}
         {(showFlood || showLandslide || showStormSurge) && (
           <>
@@ -897,7 +897,7 @@ export default function MapPanel() {
       </div>
 
       {/* Counts badge */}
-      <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} right-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2.5 py-1.5 text-[10px] font-mono text-[oklch(0.65_0.01_260)] border border-[oklch(0.25_0.02_260_/_0.5)] flex flex-col gap-0.5 transition-all`}>
+      <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} right-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2 sm:px-2.5 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-mono text-[oklch(0.65_0.01_260)] border border-[oklch(0.25_0.02_260_/_0.5)] flex flex-col gap-0.5 transition-all hidden sm:flex`}>
         {waterLevels.length > 0 && (
           <div><span className="text-[#0038A8] font-bold">{waterLevels.length}</span> water stations</div>
         )}

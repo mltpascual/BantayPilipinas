@@ -19,17 +19,23 @@ export default function AccidentsPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     const load = async () => {
-      setLoading(true);
-      const data = await fetchAccidentNews();
-      // Filter to today's incidents only (PH time)
-      const todayItems = data.filter((item) => isTodayPH(item.pubDate));
-      setItems(todayItems);
-      setLoading(false);
+      try {
+        setLoading(true);
+        const data = await fetchAccidentNews();
+        if (!mounted) return;
+        const todayItems = data.filter((item) => isTodayPH(item.pubDate));
+        setItems(todayItems);
+      } catch {
+        // feeds.ts handles errors internally
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
     load();
     const interval = setInterval(load, 180000);
-    return () => clearInterval(interval);
+    return () => { mounted = false; clearInterval(interval); };
   }, []);
 
   const getSeverityIcon = (title: string): { icon: string; color: string } => {

@@ -12,16 +12,23 @@ export default function PhiVolcsPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     const load = async () => {
-      setLoading(true);
-      const [eq, gd] = await Promise.allSettled([fetchEarthquakes(), fetchGDACS()]);
-      if (eq.status === "fulfilled") setEarthquakes(eq.value);
-      if (gd.status === "fulfilled") setDisasters(gd.value);
-      setLoading(false);
+      try {
+        setLoading(true);
+        const [eq, gd] = await Promise.allSettled([fetchEarthquakes(), fetchGDACS()]);
+        if (!mounted) return;
+        if (eq.status === "fulfilled") setEarthquakes(eq.value);
+        if (gd.status === "fulfilled") setDisasters(gd.value);
+      } catch {
+        // handled internally
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
     load();
     const interval = setInterval(load, 300000);
-    return () => clearInterval(interval);
+    return () => { mounted = false; clearInterval(interval); };
   }, []);
 
   const eventIcons: Record<string, string> = {

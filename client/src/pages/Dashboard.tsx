@@ -1,6 +1,6 @@
 // Design: "Ops Center" — Main dashboard with draggable/resizable panels
-// Space Grotesk headers, IBM Plex Sans body
-// Improved toggle readability, smooth theme transitions
+// Desktop: react-grid-layout 12-col grid with drag/resize
+// Mobile (<768px): stacked single-column scrollable layout, no drag/resize
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { GridLayout, verticalCompactor } from "react-grid-layout";
@@ -23,18 +23,20 @@ interface PanelConfig {
   icon: string;
   component: React.ComponentType;
   defaultLayout: { x: number; y: number; w: number; h: number; minW?: number; minH?: number };
+  mobileOrder: number;
+  mobileHeight: string; // tailwind h-* class or min-h-* for mobile
 }
 
 const PANELS: PanelConfig[] = [
-  { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 9, h: 12, minW: 4, minH: 6 } },
-  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 } },
-  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 4, minW: 2, minH: 3 } },
-  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 9, y: 8, w: 3, h: 5, minW: 2, minH: 4 } },
-  { id: "news", title: "News", icon: "NEWS", component: NewsPanel, defaultLayout: { x: 0, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
-  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 3, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
-  { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 6, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
-  { id: "mmda", title: "MMDA", icon: "MMDA", component: MMDAPanel, defaultLayout: { x: 9, y: 12, w: 3, h: 7, minW: 2, minH: 3 } },
-  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 0, y: 19, w: 4, h: 6, minW: 2, minH: 3 } },
+  { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 9, h: 12, minW: 4, minH: 6 }, mobileOrder: 1, mobileHeight: "min-h-[50vh]" },
+  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 }, mobileOrder: 2, mobileHeight: "min-h-[280px]" },
+  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 4, minW: 2, minH: 3 }, mobileOrder: 3, mobileHeight: "min-h-[280px]" },
+  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 9, y: 8, w: 3, h: 5, minW: 2, minH: 4 }, mobileOrder: 4, mobileHeight: "min-h-[320px]" },
+  { id: "news", title: "News", icon: "NEWS", component: NewsPanel, defaultLayout: { x: 0, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 5, mobileHeight: "min-h-[300px]" },
+  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 3, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 6, mobileHeight: "min-h-[300px]" },
+  { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 6, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 7, mobileHeight: "min-h-[300px]" },
+  { id: "mmda", title: "MMDA", icon: "MMDA", component: MMDAPanel, defaultLayout: { x: 9, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 8, mobileHeight: "min-h-[300px]" },
+  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 0, y: 19, w: 4, h: 6, minW: 2, minH: 3 }, mobileOrder: 9, mobileHeight: "min-h-[280px]" },
 ];
 
 function getDefaultLayout() {
@@ -45,15 +47,26 @@ function getDefaultLayout() {
   }));
 }
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export default function Dashboard() {
   const { theme, toggleTheme } = useTheme();
   const [time, setTime] = useState(new Date());
-  const [visiblePanels, setVisiblePanels] = useState<Set<string>>(
+  const [visiblePanels] = useState<Set<string>>(
     new Set(PANELS.map((p) => p.id))
   );
   const [layout, setLayout] = useState(getDefaultLayout());
   const [containerWidth, setContainerWidth] = useState(window.innerWidth - 16);
   const mainRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
@@ -74,15 +87,6 @@ export default function Dashboard() {
       window.removeEventListener("resize", handleResize);
       observer.disconnect();
     };
-  }, []);
-
-  const togglePanel = useCallback((id: string) => {
-    setVisiblePanels((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   }, []);
 
   const onLayoutChange = useCallback((newLayout: any) => {
@@ -111,6 +115,11 @@ export default function Dashboard() {
   const filteredLayout = layout.filter((l: any) => visiblePanels.has(l.i));
   const isDark = theme === "dark";
 
+  // Mobile: sorted panels by mobileOrder
+  const mobilePanels = [...PANELS]
+    .filter((p) => visiblePanels.has(p.id))
+    .sort((a, b) => a.mobileOrder - b.mobileOrder);
+
   return (
     <div
       className="h-screen w-screen flex flex-col overflow-hidden bg-background"
@@ -119,50 +128,56 @@ export default function Dashboard() {
       {/* PAGASA Tropical Cyclone Bulletin Banner */}
       <PAGASABulletinBanner />
 
-      {/* Header */}
+      {/* Header — responsive */}
       <header
-        className="shrink-0 h-12 flex items-center px-4 gap-4 border-b border-border relative z-50 bg-card"
+        role="banner"
+        aria-label="Dashboard header"
+        className="shrink-0 flex items-center px-3 md:px-4 gap-2 md:gap-4 border-b border-border relative z-50 bg-card min-h-[44px] md:h-12"
         style={{
           fontFamily: "'Space Grotesk', system-ui, sans-serif",
           transition: "background-color 0.3s ease, border-color 0.3s ease",
         }}
       >
-        <div className="flex items-center gap-4 w-full">
+        <div className="flex items-center gap-2 md:gap-4 w-full flex-wrap md:flex-nowrap py-1 md:py-0">
           {/* Brand */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-[#0038A8] to-[#001d5a] flex items-center justify-center shadow-lg shadow-[#0038A8]/20">
-              <span className="text-[11px] font-bold text-white tracking-wide">PH</span>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-md bg-gradient-to-br from-[#0038A8] to-[#001d5a] flex items-center justify-center shadow-lg shadow-[#0038A8]/20 shrink-0">
+              <span className="text-[10px] md:text-[11px] font-bold text-white tracking-wide">PH</span>
             </div>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[13px] font-bold tracking-wider text-foreground">MISSION CONTROL</span>
-              <span className="text-[9px] font-mono text-muted-foreground">v1.0</span>
+              <span className="text-[11px] md:text-[13px] font-bold tracking-wider text-foreground">
+                <span className="hidden sm:inline">MISSION CONTROL</span>
+                <span className="sm:hidden">MC</span>
+              </span>
+              <span className="text-[8px] md:text-[9px] font-mono text-muted-foreground hidden sm:inline">v1.0</span>
             </div>
           </div>
 
-          <div className="w-px h-6 bg-border" />
+          <div className="w-px h-5 md:h-6 bg-border hidden sm:block" />
 
           {/* Clock */}
-          <div className="flex items-center gap-2">
-            <span className={`text-sm font-mono font-bold tabular-nums ${isDark ? "text-ph-yellow" : "text-[#B8860B]"}`}>{phtTime}</span>
-            <span className="text-[10px] font-mono text-muted-foreground">PHT</span>
-            <span className="text-[10px] text-muted-foreground">{phtDate}</span>
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <span className={`text-xs md:text-sm font-mono font-bold tabular-nums ${isDark ? "text-ph-yellow" : "text-[#B8860B]"}`}>{phtTime}</span>
+            <span className="text-[9px] md:text-[10px] font-mono text-muted-foreground">PHT</span>
+            <span className="text-[9px] md:text-[10px] text-muted-foreground hidden sm:inline">{phtDate}</span>
           </div>
 
           <div className="flex-1" />
 
-          {/* Theme toggle — more prominent */}
+          {/* Theme toggle */}
           {toggleTheme && (
             <button
               onClick={toggleTheme}
-              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-200 ${
+              className={`w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg transition-all duration-200 ${
                 isDark
                   ? "text-muted-foreground hover:text-ph-yellow hover:bg-secondary"
                   : "text-muted-foreground hover:text-[#B8860B] hover:bg-secondary"
               }`}
               title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
               {isDark ? (
-                <svg className="w-[18px] h-[18px]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="w-4 h-4 md:w-[18px] md:h-[18px]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="5" />
                   <line x1="12" y1="1" x2="12" y2="3" />
                   <line x1="12" y1="21" x2="12" y2="23" />
@@ -174,58 +189,73 @@ export default function Dashboard() {
                   <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
               ) : (
-                <svg className="w-[18px] h-[18px]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="w-4 h-4 md:w-[18px] md:h-[18px]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
               )}
             </button>
           )}
 
-          <div className="w-px h-6 bg-border" />
+          <div className="w-px h-5 md:h-6 bg-border" />
 
           {/* Status indicator */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2">
             <div className="w-2 h-2 rounded-full bg-[#22C55E] shadow-lg shadow-[#22C55E]/30 pulse-blue" />
-            <span className="text-[10px] font-mono font-semibold tracking-wider text-muted-foreground">ONLINE</span>
+            <span className="text-[9px] md:text-[10px] font-mono font-semibold tracking-wider text-muted-foreground">ONLINE</span>
           </div>
         </div>
       </header>
 
-      {/* Grid Layout */}
-      <main ref={mainRef} className="flex-1 overflow-auto p-1.5">
-        <GridLayout
-          className="layout"
-          layout={filteredLayout as any}
-          width={containerWidth}
-          gridConfig={{
-            cols: 12,
-            rowHeight: 42,
-            margin: [6, 6] as [number, number],
-            containerPadding: [0, 0] as [number, number],
-            maxRows: Infinity,
-          }}
-          dragConfig={{
-            enabled: true,
-            handle: ".drag-handle",
-          }}
-          resizeConfig={{
-            enabled: true,
-            handles: ["se", "sw", "ne", "nw"],
-          }}
-          compactor={verticalCompactor}
-          onLayoutChange={onLayoutChange as any}
-          autoSize={true}
-        >
-          {PANELS.filter((p) => visiblePanels.has(p.id)).map((panel) => {
+      {/* Main Content — Desktop: Grid Layout, Mobile: Stacked */}
+      {isMobile ? (
+        <main ref={mainRef} role="main" aria-label="Dashboard panels" className="flex-1 overflow-auto p-2 space-y-2">
+          {mobilePanels.map((panel) => {
             const Component = panel.component;
             return (
-              <div key={panel.id} className="overflow-hidden">
+              <div key={panel.id} className={`${panel.mobileHeight} overflow-hidden`}>
                 <Component />
               </div>
             );
           })}
-        </GridLayout>
-      </main>
+          {/* Bottom padding for safe area */}
+          <div className="h-4" />
+        </main>
+      ) : (
+        <main ref={mainRef} role="main" aria-label="Dashboard panels" className="flex-1 overflow-auto p-1.5">
+          <GridLayout
+            className="layout"
+            layout={filteredLayout as any}
+            width={containerWidth}
+            gridConfig={{
+              cols: 12,
+              rowHeight: 42,
+              margin: [6, 6] as [number, number],
+              containerPadding: [0, 0] as [number, number],
+              maxRows: Infinity,
+            }}
+            dragConfig={{
+              enabled: true,
+              handle: ".drag-handle",
+            }}
+            resizeConfig={{
+              enabled: true,
+              handles: ["se", "sw", "ne", "nw"],
+            }}
+            compactor={verticalCompactor}
+            onLayoutChange={onLayoutChange as any}
+            autoSize={true}
+          >
+            {PANELS.filter((p) => visiblePanels.has(p.id)).map((panel) => {
+              const Component = panel.component;
+              return (
+                <div key={panel.id} className="overflow-hidden">
+                  <Component />
+                </div>
+              );
+            })}
+          </GridLayout>
+        </main>
+      )}
     </div>
   );
 }

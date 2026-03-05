@@ -47,9 +47,9 @@ export default function PanelWrapper({
       }}
     >
       {/* Header */}
-      <div className="panel-header px-3 py-1.5 flex items-center gap-2 cursor-move select-none drag-handle shrink-0">
-        <span className="text-[8px] font-bold font-mono tracking-wider px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">{icon}</span>
-        <span className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+      <div className="panel-header px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 sm:gap-2 cursor-move select-none drag-handle shrink-0">
+        <span className="text-[7px] sm:text-[8px] font-bold font-mono tracking-wider px-1 sm:px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">{icon}</span>
+        <span className="text-[10px] sm:text-[11px] font-semibold tracking-wide uppercase text-muted-foreground" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
           {title}
         </span>
         <div className={`w-1.5 h-1.5 rounded-full ${statusColors[status]} ${status === "live" ? "pulse-red" : ""}`} />

@@ -27,17 +27,23 @@ export default function NewsPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     const load = async () => {
-      setLoading(true);
-      const data = await fetchAllNews();
-      // Filter to only today's news in Philippine time
-      const todayNews = data.filter((item) => isTodayPH(item.pubDate));
-      setNews(todayNews);
-      setLoading(false);
+      try {
+        setLoading(true);
+        const data = await fetchAllNews();
+        if (!mounted) return;
+        const todayNews = data.filter((item) => isTodayPH(item.pubDate));
+        setNews(todayNews);
+      } catch {
+        // feeds.ts handles errors internally
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
     load();
-    const interval = setInterval(load, 180000); // 3 min
-    return () => clearInterval(interval);
+    const interval = setInterval(load, 180000);
+    return () => { mounted = false; clearInterval(interval); };
   }, []);
 
   return (

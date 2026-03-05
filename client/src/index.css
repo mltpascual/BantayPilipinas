@@ -110,6 +110,11 @@
     overflow: hidden;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
+  @media (max-width: 767px) {
+    body {
+      -webkit-text-size-adjust: 100%;
+    }
+  }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', system-ui, sans-serif;
   }
@@ -399,34 +404,25 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Typhoon marker animations */
-@keyframes typhoon-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-.typhoon-spin {
-  animation: typhoon-spin 4s linear infinite;
-}
-
-@keyframes typhoon-radius-pulse {
-  0%, 100% { opacity: 0.08; }
-  50% { opacity: 0.18; }
-}
-.typhoon-radius-pulse {
-  animation: typhoon-radius-pulse 3s ease-in-out infinite;
-}
-
-@keyframes typhoon-eye-pulse {
-  0%, 100% { opacity: 0.2; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(1.15); }
-}
-.typhoon-eye-pulse {
-  animation: typhoon-eye-pulse 2s ease-in-out infinite;
-}
-
-/* Typhoon marker container */
-.typhoon-map-marker {
-  cursor: pointer;
+/* Mobile responsive utilities */
+@media (max-width: 767px) {
+  /* Disable drag handles on mobile */
+  .drag-handle {
+    cursor: default !important;
+  }
+  /* Hide resize handles on mobile */
+  .react-grid-item > .react-resizable-handle {
+    display: none !important;
+  }
+  /* Tighter panel glass on mobile */
+  .panel-glass {
+    border-radius: 0.375rem;
+  }
+  /* Smaller scrollbar on mobile */
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
 }
 
 /* Alert banner continuous marquee loop */

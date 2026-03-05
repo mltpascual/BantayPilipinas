@@ -217,7 +217,7 @@ export default function PAGASABulletinBanner() {
   
   if (alerts.length === 0) {
     return (
-      <div className={`shrink-0 border-b px-3 py-1 flex items-center gap-2.5 transition-colors ${
+      <div className={`shrink-0 border-b px-2 sm:px-3 py-1 flex items-center gap-1.5 sm:gap-2.5 transition-colors ${
         isDark 
           ? "bg-[oklch(0.14_0.01_160)] border-[oklch(0.22_0.03_160)] text-[oklch(0.55_0.04_160)]" 
           : "bg-[oklch(0.97_0.005_160)] border-[oklch(0.90_0.02_160)] text-[oklch(0.50_0.04_160)]"
@@ -228,8 +228,9 @@ export default function PAGASABulletinBanner() {
           }`} />
           <span className="text-[9px] font-mono font-medium tracking-wider">STATUS</span>
         </div>
-        <span className="text-[10px] font-mono tracking-wide">
-          No active alerts — System monitoring PAGASA, USGS, FFWS
+        <span className="text-[9px] sm:text-[10px] font-mono tracking-wide">
+          <span className="hidden sm:inline">No active alerts — System monitoring PAGASA, USGS, FFWS</span>
+          <span className="sm:hidden">No active alerts</span>
         </span>
         <span className={`ml-auto text-[8px] font-mono ${
           isDark ? "text-[oklch(0.40_0.02_160)]" : "text-[oklch(0.65_0.02_160)]"
@@ -272,7 +273,7 @@ export default function PAGASABulletinBanner() {
   }).join("     ///     ");
 
   return (
-    <div className={`shrink-0 border-b px-3 py-1.5 flex items-center gap-3 transition-colors ${colorClass}`}>
+    <div className={`shrink-0 border-b px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 sm:gap-3 transition-colors ${colorClass}`}>
       {/* Severity dot */}
       <div className="flex items-center gap-2 shrink-0">
         <div className={`w-2 h-2 rounded-full ${colors.dot} animate-pulse`} />
@@ -282,7 +283,7 @@ export default function PAGASABulletinBanner() {
       {/* Continuous looping marquee */}
       <div className="flex-1 overflow-hidden relative">
         <div className="marquee-loop whitespace-nowrap">
-          <span className="text-[11px] font-mono font-semibold tracking-wide inline-block">
+          <span className="text-[10px] sm:text-[11px] font-mono font-semibold tracking-wide inline-block">
             {marqueeText}
             <span className="inline-block w-[100vw]" />
             {marqueeText}
@@ -302,6 +303,7 @@ export default function PAGASABulletinBanner() {
         onClick={() => setIsVisible(false)}
         className="shrink-0 w-5 h-5 flex items-center justify-center rounded transition-colors hover:bg-secondary text-muted-foreground"
         title="Dismiss alerts"
+        aria-label="Dismiss alerts"
       >
         <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18" />

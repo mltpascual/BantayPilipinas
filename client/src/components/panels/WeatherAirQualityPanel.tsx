@@ -79,16 +79,23 @@ export default function WeatherAirQualityPanel() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
+    let mounted = true;
     const load = async () => {
-      setLoading(true);
-      const [wx, aq] = await Promise.all([fetchWeather(), fetchAirQuality()]);
-      setWeather(wx);
-      setAirQuality(aq);
-      setLoading(false);
+      try {
+        setLoading(true);
+        const [wx, aq] = await Promise.all([fetchWeather(), fetchAirQuality()]);
+        if (!mounted) return;
+        setWeather(wx);
+        setAirQuality(aq);
+      } catch {
+        // handled internally
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
     load();
-    const interval = setInterval(load, 600000); // 10 min
-    return () => clearInterval(interval);
+    const interval = setInterval(load, 600000);
+    return () => { mounted = false; clearInterval(interval); };
   }, []);
 
   const getTempColor = (temp: number): string => {
