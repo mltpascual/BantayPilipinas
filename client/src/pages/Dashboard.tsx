@@ -150,29 +150,6 @@ export default function Dashboard() {
 
           <div className="flex-1" />
 
-          {/* Panel toggles — improved readability */}
-          <div className="flex items-center gap-1">
-            {PANELS.map((p) => {
-              const isActive = visiblePanels.has(p.id);
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => togglePanel(p.id)}
-                  className={`text-[8px] font-bold font-mono tracking-wider px-2 h-7 flex items-center justify-center rounded-md transition-all duration-200 ${
-                    isActive
-                      ? "bg-primary/15 text-primary border border-primary/25"
-                      : "bg-transparent text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/50 border border-transparent"
-                  }`}
-                  title={`Toggle ${p.title}`}
-                >
-                  {p.icon}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="w-px h-6 bg-border" />
-
           {/* Theme toggle — more prominent */}
           {toggleTheme && (
             <button

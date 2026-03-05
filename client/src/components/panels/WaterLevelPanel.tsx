@@ -135,9 +135,12 @@ export default function WaterLevelPanel() {
           {!loading &&
             !error &&
             stations.map((station) => (
-              <div
+              <a
                 key={station.id}
-                className={`group rounded px-2 py-1.5 transition-all border-l-2 ${
+                href="http://121.58.193.173:8080/water/main_list.do"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`group block rounded px-2 py-1.5 transition-all border-l-2 cursor-pointer no-underline ${
                   isDark ? "hover:bg-[oklch(0.16_0.02_260)]" : "hover:bg-[oklch(0.94_0.005_80)]"
                 }`}
                 style={{ borderLeftColor: getWaterLevelColor(station.status) }}
@@ -209,7 +212,7 @@ export default function WaterLevelPanel() {
                     )}
                   </div>
                 )}
-              </div>
+              </a>
             ))}
         </div>
 
