@@ -15,7 +15,7 @@ interface VolcanoStream {
 const STREAMS: VolcanoStream[] = [
   {
     name: "Mayon",
-    videoId: "UDAZWxehMAI",
+    videoId: "hfcvc2Yr0jM",
     location: "afarTV — Legazpi, Albay, 4K Ultra HD",
     alertLevel: 3,
   },
