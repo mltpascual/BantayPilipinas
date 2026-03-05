@@ -56,25 +56,25 @@ const VOLCANO_CAMS: VolcanoCam[] = [
     alertLevel: "Level 2",
   },
   {
-    volcano: "Mayon",
-    name: "24/7 4K Stream",
-    mode: "youtube",
-    videoId: "hfcvc2Yr0jM",
-    location: "afarTV — Legazpi, Albay",
-  },
-  {
     volcano: "Kanlaon",
-    name: "24/7 Stream",
+    name: "24/7 Live Stream",
     mode: "youtube",
     videoId: "JVLVCSfQLYQ",
     location: "afarTV — Negros Occidental",
   },
   {
+    volcano: "Bulusan",
+    name: "24/7 4K Stream",
+    mode: "youtube",
+    videoId: "sSavszvmqHY",
+    location: "afarTV — Sorsogon, 4K Ultra HD",
+  },
+  {
     volcano: "Mayon",
-    name: "Eruption Stream",
+    name: "Eruption 4K Stream",
     mode: "youtube",
     videoId: "UDAZWxehMAI",
-    location: "afarTV — 4K Ultra HD",
+    location: "afarTV — Legazpi, Albay, 4K Ultra HD",
   },
 ];
 
