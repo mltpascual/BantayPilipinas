@@ -901,23 +901,7 @@ export default function MapPanel() {
         ))}
       </div>
 
-      {/* Counts badge */}
-      <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} right-2 z-[1000] bg-[oklch(0.10_0.015_260_/_0.92)] backdrop-blur-md rounded-lg px-2 sm:px-2.5 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-mono text-[oklch(0.65_0.01_260)] border border-[oklch(0.25_0.02_260_/_0.5)] flex flex-col gap-0.5 transition-all hidden sm:flex`}>
-        {waterLevels.length > 0 && (
-          <div><span className="text-[#0038A8] font-bold">{waterLevels.length}</span> water stations</div>
-        )}
-        {(showFlood || showLandslide || showStormSurge) && (
-          <div className="border-t border-[oklch(0.25_0.02_260_/_0.5)] pt-0.5 mt-0.5">
-            <span className="text-[#41B6E6] font-bold">NOAH</span> <span className="text-[8px]">Nationwide</span>
-          </div>
-        )}
-        {showVolcano && (
-          <div><span className="text-[#CE1126] font-bold">12</span> volcanoes</div>
-        )}
-        {showEvacCenters && (
-          <div><span className="text-[#4CAF50] font-bold">6,424</span> evac centers</div>
-        )}
-      </div>
+
 
       {/* Attribution */}
       <div className="absolute bottom-2 right-2 z-[1000] flex flex-col items-end gap-0.5">
