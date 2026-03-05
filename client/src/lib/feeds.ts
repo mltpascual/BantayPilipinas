@@ -52,32 +52,13 @@ export interface GDACSItem {
   severity: string;
 }
 
-export interface TyphoonData {
-  id: string;
-  eventId: string;
-  episodeId: string;
-  name: string;
-  lat: number;
-  lon: number;
-  windSpeed: number;
-  category: string;
-  alertLevel: string;
-  country: string;
-  title: string;
-  link: string;
-  pubDate: string;
-  bbox: [number, number, number, number] | null; // [lonMin, lonMax, latMin, latMax]
-}
+
 
 const CORS_PROXY_JSON = "https://api.allorigins.win/get?url=";
-const CORS_PROXY_RAW = "https://api.allorigins.win/raw?url=";
 
 // Helper: build proxy URL with cache-busting
 function proxyJsonUrl(targetUrl: string): string {
   return cacheBustUrl(`${CORS_PROXY_JSON}${encodeURIComponent(targetUrl)}`);
-}
-function proxyRawUrl(targetUrl: string): string {
-  return cacheBustUrl(`${CORS_PROXY_RAW}${encodeURIComponent(targetUrl)}`);
 }
 
 function decodeHTMLEntities(text: string): string {
@@ -409,95 +390,7 @@ export function formatMagnitude(mag: number): { color: string; label: string } {
   return { color: "#6B7280", label: "Minor" };
 }
 
-export async function fetchTyphoons(): Promise<TyphoonData[]> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
-    const response = await fetch(
-      proxyJsonUrl("https://www.gdacs.org/xml/rss.xml"),
-      { signal: controller.signal }
-    );
-    clearTimeout(timeout);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const jsonResp = await response.json();
-    const rawText = jsonResp.contents || "";
 
-    if (!rawText.startsWith("<?xml") && !rawText.startsWith("<rss")) {
-      throw new Error("Not XML response");
-    }
-
-    const parser = new DOMParser();
-    const xml = parser.parseFromString(rawText, "text/xml");
-    const items = xml.querySelectorAll("item");
-    const typhoons: TyphoonData[] = [];
-
-    items.forEach((item) => {
-      const eventType = item.querySelector("eventtype")?.textContent;
-      if (eventType !== "TC") return;
-
-      const title = item.querySelector("title")?.textContent || "";
-      const lat = parseFloat(item.querySelector("lat")?.textContent || "0");
-      const lon = parseFloat(item.querySelector("long")?.textContent || "0");
-      const eventName = item.querySelector("eventname")?.textContent || "Unknown";
-      const eventId = item.querySelector("eventid")?.textContent || "";
-      const episodeId = item.querySelector("episodeid")?.textContent || "1";
-      const alertLevel = item.querySelector("alertlevel")?.textContent || "Green";
-      const country = item.querySelector("country")?.textContent || "";
-      const link = item.querySelector("link")?.textContent || "";
-      const pubDate = item.querySelector("pubDate")?.textContent || "";
-      const severityEl = item.querySelector("severity");
-      const windSpeed = parseFloat(severityEl?.getAttribute("value") || "0");
-      const category = severityEl?.textContent || "";
-
-      const bboxText = item.querySelector("bbox")?.textContent;
-      let bbox: [number, number, number, number] | null = null;
-      if (bboxText) {
-        const parts = bboxText.trim().split(/\s+/).map(Number);
-        if (parts.length === 4) bbox = parts as [number, number, number, number];
-      }
-
-      typhoons.push({
-        id: `TC${eventId}`,
-        eventId,
-        episodeId,
-        name: eventName,
-        lat,
-        lon,
-        windSpeed,
-        category,
-        alertLevel,
-        country,
-        title: decodeHTMLEntities(title).trim(),
-        link: link.trim(),
-        pubDate,
-        bbox,
-      });
-    });
-
-    return typhoons;
-  } catch (err) {
-    console.warn("Failed to fetch typhoons:", err);
-    return [];
-  }
-}
-
-export function getTyphoonColor(alertLevel: string, windSpeed: number): string {
-  if (alertLevel === "Red" || windSpeed >= 178) return "#CE1126";
-  if (alertLevel === "Orange" || windSpeed >= 119) return "#FF6B35";
-  if (alertLevel === "Green" || windSpeed >= 63) return "#FCD116";
-  return "#0038A8";
-}
-
-export function getTyphoonCategory(windSpeed: number): string {
-  if (windSpeed >= 252) return "Super Typhoon";
-  if (windSpeed >= 209) return "Cat 5";
-  if (windSpeed >= 178) return "Cat 4";
-  if (windSpeed >= 154) return "Cat 3";
-  if (windSpeed >= 130) return "Cat 2";
-  if (windSpeed >= 119) return "Cat 1";
-  if (windSpeed >= 63) return "Tropical Storm";
-  return "Tropical Depression";
-}
 
 // ===== PAGASA Water Level Monitoring =====
 
@@ -582,58 +475,7 @@ export function getWaterLevelColor(status: string): string {
   }
 }
 
-// ===== GDACS Typhoon Track Geometry =====
 
-export interface TyphoonTrackData {
-  trackLine: GeoJSON.Feature<GeoJSON.LineString>[];
-  cone: GeoJSON.Feature<GeoJSON.Polygon> | null;
-  windZones: GeoJSON.Feature<GeoJSON.Polygon>[];
-  trackPoints: { coords: [number, number]; label: string; category: string }[];
-}
-
-export async function fetchTyphoonTrack(eventId: string, episodeId: string): Promise<TyphoonTrackData | null> {
-  try {
-    const url = `https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=${eventId}&episodeid=${episodeId}`;
-    const resp = await fetch(proxyRawUrl(url));
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const geojson = await resp.json();
-    
-    if (!geojson.features || !Array.isArray(geojson.features)) return null;
-
-    const trackLine: GeoJSON.Feature<GeoJSON.LineString>[] = [];
-    let cone: GeoJSON.Feature<GeoJSON.Polygon> | null = null;
-    const windZones: GeoJSON.Feature<GeoJSON.Polygon>[] = [];
-    const trackPoints: { coords: [number, number]; label: string; category: string }[] = [];
-
-    for (const feature of geojson.features) {
-      const cls = feature.properties?.Class || "";
-      const label = feature.properties?.polygonlabel || "";
-      const geomType = feature.geometry?.type;
-
-      if (cls.startsWith("Line_Line_") && geomType === "LineString") {
-        trackLine.push(feature);
-      } else if (cls === "Poly_Cones" && geomType === "Polygon") {
-        cone = feature;
-      } else if (cls.startsWith("Poly_") && cls !== "Poly_Cones" && geomType === "Polygon") {
-        windZones.push({ ...feature, properties: { ...feature.properties, severity: cls.replace("Poly_", "") } });
-      } else if (cls.startsWith("Point_Polygon_Point_") && geomType === "Polygon") {
-        // Extract centroid from the wind radius polygon
-        const coords = feature.geometry.coordinates[0];
-        if (coords && coords.length > 0) {
-          let sumLon = 0, sumLat = 0;
-          for (const c of coords) { sumLon += c[0]; sumLat += c[1]; }
-          const centroid: [number, number] = [sumLon / coords.length, sumLat / coords.length];
-          trackPoints.push({ coords: centroid, label, category: label });
-        }
-      }
-    }
-
-    return { trackLine, cone, windZones, trackPoints };
-  } catch (err) {
-    console.warn(`Failed to fetch typhoon track for event ${eventId}:`, err);
-    return null;
-  }
-}
 
 // ===== Air Quality Monitoring (Open-Meteo) =====
 
