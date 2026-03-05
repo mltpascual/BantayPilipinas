@@ -12,6 +12,8 @@ import {
   getWaterLevelColor,
   GDACSItem,
   fetchGDACS,
+  EarthquakeFeature,
+  fetchEarthquakes,
 } from "@/lib/feeds";
 import { isDataFresh } from "@/lib/fetchUtils";
 import { searchProvinces, type Province } from "@/lib/provinces";
@@ -75,6 +77,7 @@ export default function MapPanel() {
   const mapInstance = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const gdacsMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const usgsMarkersRef = useRef<maplibregl.Marker[]>([]);
 
   const [waterLevels, setWaterLevels] = useState<WaterLevelStation[]>([]);
   const [showWaterLevels, setShowWaterLevels] = useState(true);
@@ -87,6 +90,8 @@ export default function MapPanel() {
   const [showEvacCenters, setShowEvacCenters] = useState(false);
   const [showGDACS, setShowGDACS] = useState(true);
   const [gdacsAlerts, setGdacsAlerts] = useState<GDACSItem[]>([]);
+  const [showUSGS, setShowUSGS] = useState(true);
+  const [usgsQuakes, setUsgsQuakes] = useState<EarthquakeFeature[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [hazardLoading, setHazardLoading] = useState<Record<string, boolean>>({});
 
@@ -348,6 +353,123 @@ export default function MapPanel() {
       gdacsMarkersRef.current.push(marker);
     });
   }, [gdacsAlerts, showGDACS, mapReady]);
+
+  // Fetch USGS earthquakes
+  useEffect(() => {
+    let mounted = true;
+    const loadUSGS = async () => {
+      try {
+        const data = await fetchEarthquakes();
+        if (!mounted) return;
+        setUsgsQuakes(data);
+      } catch (err) {
+        console.warn("Failed to fetch USGS:", err);
+      }
+    };
+    loadUSGS();
+    const interval = setInterval(loadUSGS, 5 * 60 * 1000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
+  // Render USGS earthquake markers on the map
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+    const map = mapInstance.current;
+
+    // Clear existing USGS markers
+    usgsMarkersRef.current.forEach(m => m.remove());
+    usgsMarkersRef.current = [];
+
+    if (!showUSGS) return;
+
+    usgsQuakes.forEach((eq) => {
+      const [lon, lat, depthKm] = eq.geometry.coordinates;
+      if (lat == null || lon == null) return;
+      const mag = eq.properties.mag;
+      const place = eq.properties.place || "Unknown location";
+      const url = eq.properties.url || "";
+      const time = eq.properties.time;
+      const tsunami = eq.properties.tsunami;
+
+      // Color by magnitude
+      let magColor: string;
+      let magLabel: string;
+      if (mag >= 6) {
+        magColor = "#CE1126";
+        magLabel = "Major";
+      } else if (mag >= 5) {
+        magColor = "#FF6B35";
+        magLabel = "Strong";
+      } else if (mag >= 4) {
+        magColor = "#FCD116";
+        magLabel = "Moderate";
+      } else if (mag >= 3) {
+        magColor = "#41B6E6";
+        magLabel = "Light";
+      } else {
+        magColor = "#22C55E";
+        magLabel = "Minor";
+      }
+
+      // Size by magnitude (12px base, scales up)
+      const size = Math.max(14, Math.min(36, 10 + mag * 4));
+      const fontSize = Math.max(8, Math.min(12, 6 + mag * 1));
+
+      // Time ago
+      const hoursAgo = Math.round((Date.now() - time) / (1000 * 60 * 60));
+      const timeLabel = hoursAgo < 1 ? "< 1h ago" : hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.round(hoursAgo / 24)}d ago`;
+
+      // Create marker element — concentric ring with magnitude text
+      const el = document.createElement("div");
+      el.style.cursor = "pointer";
+      el.innerHTML = `<div style="position:relative;width:${size}px;height:${size}px;">
+        <div style="position:absolute;inset:-3px;border-radius:50%;border:2px solid ${magColor};opacity:0.4;animation:gdacsPulse 3s ease-in-out infinite;"></div>
+        <div style="width:${size}px;height:${size}px;border-radius:50%;background:${magColor};border:2px solid rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.35);">
+          <span style="color:${mag >= 4 && mag < 5 ? '#1f2937' : 'white'};font-family:'JetBrains Mono',monospace;font-size:${fontSize}px;font-weight:800;line-height:1;">${mag.toFixed(1)}</span>
+        </div>
+      </div>`;
+
+      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+        .setLngLat([lon, lat])
+        .setPopup(
+          new maplibregl.Popup({ className: "noah-popup", maxWidth: "280px" }).setHTML(`
+            <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="background:${magColor};width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                  <span style="color:${mag >= 4 && mag < 5 ? '#1f2937' : 'white'};font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:900;">${mag.toFixed(1)}</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;font-size:13px;line-height:1.3;">M${mag.toFixed(1)} Earthquake</div>
+                  <div style="font-size:10px;color:#6B7280;">${escapeHtml(place)} &middot; ${timeLabel}</div>
+                </div>
+              </div>
+              <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                  <span style="color:#6B7280;">Depth</span>
+                  <span style="font-weight:700;font-family:'JetBrains Mono',monospace;">${depthKm.toFixed(1)} km</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                  <span style="color:#6B7280;">Severity</span>
+                  <span style="background:${magColor};color:${mag >= 4 && mag < 5 ? '#1f2937' : 'white'};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">${magLabel}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                  <span style="color:#6B7280;">Coordinates</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${lat.toFixed(3)}, ${lon.toFixed(3)}</span>
+                </div>
+                ${tsunami ? '<div style="display:flex;justify-content:space-between;"><span style="color:#6B7280;">Tsunami</span><span style="background:#CE1126;color:white;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">WARNING</span></div>' : ''}
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:9px;color:#6B7280;">Source: USGS</span>
+                ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:#0038A8;text-decoration:underline;font-weight:600;">View on USGS &rarr;</a>` : ''}
+              </div>
+            </div>
+          `)
+        )
+        .addTo(map);
+
+      usgsMarkersRef.current.push(marker);
+    });
+  }, [usgsQuakes, showUSGS, mapReady]);
 
   // Add NOAH hazard layer
   const addHazardLayer = useCallback(async (hazardType: string, propKey: string, url: string) => {
@@ -776,6 +898,7 @@ export default function MapPanel() {
   const toggleVolcano = useCallback(() => setShowVolcano((v) => !v), []);
   const toggleEvacCenters = useCallback(() => setShowEvacCenters((v) => !v), []);
   const toggleGDACS = useCallback(() => setShowGDACS((v) => !v), []);
+  const toggleUSGS = useCallback(() => setShowUSGS((v) => !v), []);
 
   const btnClass = (active: boolean) =>
     `flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[8px] sm:text-[9px] font-semibold tracking-wider transition-all border ${
@@ -902,6 +1025,9 @@ export default function MapPanel() {
           <button onClick={toggleGDACS} className={btnClass(showGDACS)} style={showGDACS ? { color: "#FF4444", borderColor: "#FF4444" } : {}} title="Toggle GDACS Disaster Alerts (last 23h)">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> GDACS{gdacsAlerts.length > 0 ? ` (${gdacsAlerts.length})` : ""}
           </button>
+          <button onClick={toggleUSGS} className={btnClass(showUSGS)} style={showUSGS ? { color: "#FF8C00", borderColor: "#FF8C00" } : {}} title="Toggle USGS Earthquake Markers">
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l2-2 3 3 4-6 3 4 4-3 4 4"/></svg> USGS{usgsQuakes.length > 0 ? ` (${usgsQuakes.length})` : ""}
+          </button>
           <button onClick={toggleWaterLevels} className={btnClass(showWaterLevels)} style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}} title="Toggle water level stations">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> WL
           </button>
@@ -970,6 +1096,26 @@ export default function MapPanel() {
               </div>
             ))}
             <div className={`text-[8px] mb-1 ${isDark ? 'text-[oklch(0.50_0.01_260)]' : 'text-gray-400'}`}>Last 23h only</div>
+          </>
+        )}
+
+        {/* USGS Earthquakes Legend */}
+        {showUSGS && usgsQuakes.length > 0 && (
+          <>
+            <div className={`mb-1 font-semibold text-[9px] tracking-wider ${isDark ? 'text-[oklch(0.55_0.01_260)]' : 'text-gray-500'}`}>USGS EARTHQUAKES</div>
+            {[
+              { color: "#CE1126", label: "M6+ Major" },
+              { color: "#FF6B35", label: "M5-6 Strong" },
+              { color: "#FCD116", label: "M4-5 Moderate" },
+              { color: "#41B6E6", label: "M3-4 Light" },
+              { color: "#22C55E", label: "< M3 Minor" },
+            ].map((item) => (
+              <div key={`usgs-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
+                <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ background: item.color }} />
+                <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
+              </div>
+            ))}
+            <div className={`text-[8px] mb-1 ${isDark ? 'text-[oklch(0.50_0.01_260)]' : 'text-gray-400'}`}>PH region, last 30</div>
           </>
         )}
 
@@ -1075,7 +1221,7 @@ export default function MapPanel() {
       {/* Attribution */}
       <div className="absolute bottom-2 right-2 z-[1000] flex flex-col items-end gap-0.5">
         <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>{isSatellite ? "ESRI Satellite" : "CARTO / OpenStreetMap"}</div>
-        <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>Data: PAGASA / UPRI-NOAH / PHIVOLCS / GDACS</div>
+        <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>Data: PAGASA / UPRI-NOAH / PHIVOLCS / GDACS / USGS</div>
       </div>
 
       {/* Fullscreen ESC hint */}
