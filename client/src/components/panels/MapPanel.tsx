@@ -741,15 +741,11 @@ export default function MapPanel() {
 
       {/* Layer toggle controls */}
       <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} left-1 sm:left-2 z-[1000] flex flex-col gap-1 sm:gap-1.5 transition-all`}>
-        {/* Row 1: Water Levels */}
-        <div className="flex gap-1">
+        {/* Row 1: Water Levels + NOAH Hazard overlays */}
+        <div className="flex gap-1 flex-wrap">
           <button onClick={toggleWaterLevels} className={btnClass(showWaterLevels)} style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}} title="Toggle water level stations">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> WL
           </button>
-        </div>
-
-        {/* Row 2: NOAH Hazard overlays */}
-        <div className="flex gap-1">
           <button onClick={toggleFlood} className={btnClass(showFlood)} style={showFlood ? { color: "#41B6E6", borderColor: "#41B6E6" } : {}} title="Toggle NOAH Flood Hazard">
             {hazardLoading.flood ? (
               <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
@@ -773,8 +769,8 @@ export default function MapPanel() {
           </button>
         </div>
 
-        {/* Row 3: Volcano */}
-        <div className="flex gap-1">
+        {/* Row 2: Volcano + Facilities */}
+        <div className="flex gap-1 flex-wrap">
           <button onClick={toggleVolcano} className={btnClass(showVolcano)} style={showVolcano ? { color: "#CE1126", borderColor: "#CE1126" } : {}} title="Toggle Volcano Hazard Zones (PHIVOLCS)">
             {hazardLoading.volcano ? (
               <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
@@ -782,10 +778,6 @@ export default function MapPanel() {
               <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
             )} Volcano
           </button>
-        </div>
-
-        {/* Row 4: Facilities */}
-        <div className="flex gap-1">
           <button onClick={toggleHospitals} className={btnClass(showHospitals)} style={showHospitals ? { color: "#00D4FF", borderColor: "#00D4FF" } : {}} title="Toggle NOAH Hospitals">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v5"/><path d="M10 11h4"/><rect x="4" y="6" width="16" height="16" rx="2"/></svg> Hosp
           </button>

@@ -29,9 +29,9 @@ interface PanelConfig {
 
 const PANELS: PanelConfig[] = [
   { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 9, h: 12, minW: 4, minH: 6 }, mobileOrder: 1, mobileHeight: "min-h-[50vh]" },
-  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 4, minW: 2, minH: 3 }, mobileOrder: 2, mobileHeight: "min-h-[280px]" },
-  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 4, w: 3, h: 4, minW: 2, minH: 3 }, mobileOrder: 3, mobileHeight: "min-h-[280px]" },
-  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 9, y: 8, w: 3, h: 5, minW: 2, minH: 4 }, mobileOrder: 4, mobileHeight: "min-h-[320px]" },
+  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 6, minW: 2, minH: 4 }, mobileOrder: 2, mobileHeight: "min-h-[320px]" },
+  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 6, w: 3, h: 6, minW: 2, minH: 4 }, mobileOrder: 3, mobileHeight: "min-h-[320px]" },
+  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 9, y: 12, w: 3, h: 5, minW: 2, minH: 4 }, mobileOrder: 4, mobileHeight: "min-h-[320px]" },
   { id: "news", title: "News", icon: "NEWS", component: NewsPanel, defaultLayout: { x: 0, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 5, mobileHeight: "min-h-[300px]" },
   { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 3, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 6, mobileHeight: "min-h-[300px]" },
   { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 6, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 7, mobileHeight: "min-h-[300px]" },
