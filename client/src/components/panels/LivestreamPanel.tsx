@@ -43,6 +43,18 @@ const CHANNELS: Channel[] = [
     label: "PTV Philippines",
     color: "#0038A8",
   },
+  {
+    name: "ONE News",
+    channelId: "UCzEAC4xGrhpShopTYgBhGJA",
+    label: "One News PH (Cignal)",
+    color: "#E8B500",
+  },
+  {
+    name: "Net25",
+    channelId: "UC5IF8NlxMW1GkEUUqWJJBIw",
+    label: "Net25 Philippines",
+    color: "#00A651",
+  },
 ];
 
 export default function LivestreamPanel() {
