@@ -14,10 +14,16 @@ interface Channel {
 
 const CHANNELS: Channel[] = [
   {
-    name: "PTV",
-    channelId: "UCm1wMSBO9P1L7TiJnBnTxUg",
-    label: "PTV Philippines",
-    color: "#0038A8",
+    name: "CNN PH",
+    channelId: "UCwMDXamqIbGCPPGmk7bMiQg",
+    label: "CNN Philippines",
+    color: "#CC0000",
+  },
+  {
+    name: "ANC",
+    channelId: "UCmN1TnSbMQTTDrjIG0FQKOQ",
+    label: "ANC 24/7",
+    color: "#1DA1F2",
   },
   {
     name: "GMA",
@@ -32,16 +38,10 @@ const CHANNELS: Channel[] = [
     color: "#CE1126",
   },
   {
-    name: "ANC",
-    channelId: "UCmN1TnSbMQTTDrjIG0FQKOQ",
-    label: "ANC 24/7",
-    color: "#1DA1F2",
-  },
-  {
-    name: "CNN PH",
-    channelId: "UCwMDXamqIbGCPPGmk7bMiQg",
-    label: "CNN Philippines",
-    color: "#CC0000",
+    name: "PTV",
+    channelId: "UCm1wMSBO9P1L7TiJnBnTxUg",
+    label: "PTV Philippines",
+    color: "#0038A8",
   },
 ];
 
