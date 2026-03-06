@@ -616,3 +616,146 @@ export function getUvLabel(uv: number): { label: string; color: string } {
   if (uv <= 10) return { label: "Very High", color: "#CE1126" };
   return { label: "Extreme", color: "#8B008B" };
 }
+
+
+// ===== Comprehensive PH News RSS Feeds (13 outlets) =====
+
+export interface PHNewsSource {
+  id: string;
+  name: string;
+  shortName: string;
+  color: string;
+  category: "major" | "business" | "regional";
+  feeds: { label: string; url: string }[];
+}
+
+export const PH_NEWS_SOURCES: PHNewsSource[] = [
+  // Major National Outlets
+  {
+    id: "rappler", name: "Rappler", shortName: "Rappler", color: "#00B4D8",
+    category: "major",
+    feeds: [
+      { label: "Main", url: "https://www.rappler.com/feed/" },
+      { label: "Nation", url: "https://www.rappler.com/philippines/feed" },
+    ],
+  },
+  {
+    id: "inquirer", name: "Philippine Daily Inquirer", shortName: "Inquirer", color: "#CE1126",
+    category: "major",
+    feeds: [
+      { label: "Main", url: "https://www.inquirer.net/feed/" },
+      { label: "News", url: "https://newsinfo.inquirer.net/feed" },
+    ],
+  },
+  {
+    id: "gma", name: "GMA News Online", shortName: "GMA News", color: "#FCD116",
+    category: "major",
+    feeds: [
+      { label: "News", url: "https://data.gmanetwork.com/gno/rss/news/feed.xml" },
+      { label: "Nation", url: "https://data.gmanetwork.com/gno/rss/news/nation/feed.xml" },
+    ],
+  },
+  {
+    id: "abscbn", name: "ABS-CBN News", shortName: "ABS-CBN", color: "#00A651",
+    category: "major",
+    feeds: [
+      { label: "Main", url: "https://news.abs-cbn.com/feed" },
+    ],
+  },
+  {
+    id: "philstar", name: "PhilStar Global", shortName: "PhilStar", color: "#22C55E",
+    category: "major",
+    feeds: [
+      { label: "Headlines", url: "https://www.philstar.com/rss/headlines" },
+      { label: "Nation", url: "https://www.philstar.com/rss/nation" },
+    ],
+  },
+  {
+    id: "manilatimes", name: "The Manila Times", shortName: "Manila Times", color: "#0038A8",
+    category: "major",
+    feeds: [
+      { label: "News", url: "https://www.manilatimes.net/news/feed/" },
+      { label: "Nation", url: "https://www.manilatimes.net/news/national/feed/" },
+    ],
+  },
+  {
+    id: "tribune", name: "Daily Tribune", shortName: "Tribune", color: "#8B5CF6",
+    category: "major",
+    feeds: [
+      { label: "Main", url: "https://tribune.net.ph/feed" },
+    ],
+  },
+  // Business Outlets
+  {
+    id: "bworld", name: "BusinessWorld", shortName: "BWorld", color: "#F59E0B",
+    category: "business",
+    feeds: [
+      { label: "Main", url: "https://www.bworldonline.com/feed/" },
+    ],
+  },
+  {
+    id: "bmirror", name: "BusinessMirror", shortName: "BizMirror", color: "#3B82F6",
+    category: "business",
+    feeds: [
+      { label: "Main", url: "https://businessmirror.com.ph/feed/" },
+    ],
+  },
+  // Regional Outlets
+  {
+    id: "sunstar", name: "SunStar", shortName: "SunStar", color: "#EF4444",
+    category: "regional",
+    feeds: [
+      { label: "Main", url: "https://www.sunstar.com.ph/feed" },
+    ],
+  },
+  {
+    id: "mindanao", name: "Mindanao Times", shortName: "MindTimes", color: "#10B981",
+    category: "regional",
+    feeds: [
+      { label: "Main", url: "https://www.mindanaotimes.com.ph/feed/" },
+    ],
+  },
+  {
+    id: "panay", name: "Panay News", shortName: "Panay", color: "#F97316",
+    category: "regional",
+    feeds: [
+      { label: "Main", url: "https://www.panaynews.net/feed/" },
+    ],
+  },
+  {
+    id: "visayan", name: "Visayan Daily Star", shortName: "Visayan", color: "#EC4899",
+    category: "regional",
+    feeds: [
+      { label: "Main", url: "https://visayandailystar.com/feed/" },
+    ],
+  },
+];
+
+export async function fetchAllPHNews(sourceIds?: string[]): Promise<FeedItem[]> {
+  const sources = sourceIds
+    ? PH_NEWS_SOURCES.filter((s) => sourceIds.includes(s.id))
+    : PH_NEWS_SOURCES;
+
+  // Fetch only the first (main) feed per source to avoid rate limits
+  const feedRequests = sources.map((src) => ({
+    url: src.feeds[0].url,
+    source: src.shortName,
+  }));
+
+  const results = await Promise.allSettled(
+    feedRequests.map((f) => fetchRSSFeed(f.url, f.source))
+  );
+
+  const allItems: FeedItem[] = [];
+  results.forEach((r) => {
+    if (r.status === "fulfilled") allItems.push(...r.value);
+  });
+
+  return allItems
+    .filter((item) => isDataFresh(item.pubDate, 48))
+    .sort((a, b) => {
+      const dateA = new Date(a.pubDate).getTime() || 0;
+      const dateB = new Date(b.pubDate).getTime() || 0;
+      return dateB - dateA;
+    });
+}

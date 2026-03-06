@@ -1155,8 +1155,7 @@ export default function MapPanel() {
         </div>
       </div>
 
-      {/* Quick Zoom Presets — right-aligned */}
-      <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} right-12 z-[1001] transition-all`}>
+      {/* Quick Zoom Presets — right-aligned */}      <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} right-2 z-[1001] transition-all`}>
         <div className={`flex items-center gap-0.5 backdrop-blur-md rounded-lg shadow-lg border p-0.5 overflow-x-auto scrollbar-none ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.92)] border-[oklch(0.25_0.02_260)]' : 'bg-white/92 border-gray-200'}`}>
           {QUICK_ZOOM_PRESETS.map((preset) => (
             <button
