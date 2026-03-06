@@ -23,7 +23,6 @@ import { useFreshness, FreshnessIndicator } from "@/contexts/FreshnessContext";
 // Basemap styles
 const MAP_STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 const MAP_STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
-const ESRI_SATELLITE_TILES = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 // Critical facilities GeoJSON from NOAH S3
 const CRITICAL_FACILITIES = {
@@ -114,8 +113,6 @@ export default function MapPanel() {
   const [mapReady, setMapReady] = useState(false);
   const [hazardLoading, setHazardLoading] = useState<Record<string, boolean>>({});
 
-  // Full-screen mode
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Alert banner
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
@@ -127,8 +124,6 @@ export default function MapPanel() {
   const [showSearch, setShowSearch] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Satellite toggle
-  const [isSatellite, setIsSatellite] = useState(false);
 
   // Initialize MapLibre GL map
   useEffect(() => {
@@ -156,23 +151,6 @@ export default function MapPanel() {
     };
   }, []);
 
-  // Fullscreen toggle with ESC key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isFullscreen) {
-        setIsFullscreen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFullscreen]);
-
-  // Resize map when fullscreen changes
-  useEffect(() => {
-    if (mapInstance.current) {
-      setTimeout(() => mapInstance.current?.resize(), 100);
-    }
-  }, [isFullscreen]);
 
   // Generate alerts from water level data
   useEffect(() => {
@@ -1027,56 +1005,9 @@ export default function MapPanel() {
       map.setCenter(center);
       map.setZoom(zoom);
 
-      // Re-add satellite layer if it was active
-      if (isSatellite) {
-        map.addSource("satellite-tiles", {
-          type: "raster",
-          tiles: [ESRI_SATELLITE_TILES],
-          tileSize: 256,
-          attribution: "ESRI World Imagery",
-        });
-        const firstLayerId = map.getStyle().layers?.[0]?.id;
-        map.addLayer({
-          id: "satellite-layer",
-          type: "raster",
-          source: "satellite-tiles",
-          paint: { "raster-opacity": 1 },
-        }, firstLayerId);
-      }
     });
   }, [isDark, mapReady]);
 
-  // Satellite basemap toggle
-  useEffect(() => {
-    const map = mapInstance.current;
-    if (!map || !mapReady) return;
-
-    if (isSatellite) {
-      if (!map.getSource("satellite-tiles")) {
-        map.addSource("satellite-tiles", {
-          type: "raster",
-          tiles: [ESRI_SATELLITE_TILES],
-          tileSize: 256,
-          attribution: "ESRI World Imagery",
-        });
-      }
-      if (!map.getLayer("satellite-layer")) {
-        const firstLayerId = map.getStyle().layers?.[0]?.id;
-        map.addLayer({
-          id: "satellite-layer",
-          type: "raster",
-          source: "satellite-tiles",
-          paint: { "raster-opacity": 1 },
-        }, firstLayerId);
-      } else {
-        map.setLayoutProperty("satellite-layer", "visibility", "visible");
-      }
-    } else {
-      if (map.getLayer("satellite-layer")) {
-        map.setLayoutProperty("satellite-layer", "visibility", "none");
-      }
-    }
-  }, [isSatellite, mapReady]);
 
   // Location search handler
   const handleSearchInput = useCallback((value: string) => {
@@ -1146,7 +1077,7 @@ export default function MapPanel() {
   const displayAlerts = [...criticalAlerts, ...warningAlerts].slice(0, 3);
 
   return (
-    <div className={`relative ${isFullscreen ? "fixed inset-0 z-[9999] bg-black" : "h-full w-full"}`}>
+    <div className="relative h-full w-full">
       {/* Alert Banner */}
       {displayAlerts.length > 0 && (
         <div className="absolute top-0 left-0 right-0 z-[1002] flex flex-col">
@@ -1177,29 +1108,7 @@ export default function MapPanel() {
 
       <div ref={mapRef} className="h-full w-full" />
 
-      {/* Satellite toggle button */}
-      <button
-        onClick={() => setIsSatellite(v => !v)}
-        className={`absolute top-2 right-12 z-[1001] w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md shadow-lg border transition-colors ${
-          isSatellite ? "bg-blue-600 border-blue-500 text-white hover:bg-blue-700" : isDark ? "bg-[oklch(0.12_0.015_260_/_0.9)] border-[oklch(0.25_0.02_260)] hover:bg-[oklch(0.18_0.02_260)]" : "bg-white/90 border-gray-200 hover:bg-white"
-        }`}
-        title={isSatellite ? "Switch to Map view" : "Switch to Satellite view"}
-      >
-        <svg className={`w-4 h-4 ${isSatellite ? "text-white" : isDark ? "text-gray-400" : "text-gray-700"}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-      </button>
 
-      {/* Fullscreen toggle button */}
-      <button
-        onClick={() => setIsFullscreen(v => !v)}
-        className={`absolute top-2 right-2 z-[1001] w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md shadow-lg border transition-colors ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.9)] border-[oklch(0.25_0.02_260)] hover:bg-[oklch(0.18_0.02_260)]' : 'bg-white/90 border-gray-200 hover:bg-white'}`}
-        title={isFullscreen ? "Exit fullscreen (ESC)" : "Fullscreen map"}
-      >
-        {isFullscreen ? (
-          <svg className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-700'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
-        ) : (
-          <svg className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-700'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-        )}
-      </button>
 
       {/* Location Search Bar — centered */}
       <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} left-1/2 -translate-x-1/2 z-[1001] transition-all`}>
@@ -1350,16 +1259,10 @@ export default function MapPanel() {
 
       {/* Attribution */}
       <div className="absolute bottom-2 right-2 z-[1000] flex flex-col items-end gap-0.5">
-        <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>{isSatellite ? "ESRI Satellite" : "CARTO / OpenStreetMap"}</div>
+        <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>CARTO / OpenStreetMap</div>
         <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>Data: PAGASA / UPRI-NOAH / PHIVOLCS / GDACS / USGS</div>
       </div>
 
-      {/* Fullscreen ESC hint */}
-      {isFullscreen && (
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-[1001] bg-black/60 text-white/80 text-[10px] font-mono px-3 py-1 rounded-full backdrop-blur-sm animate-pulse">
-          Press ESC to exit fullscreen
-        </div>
-      )}
     </div>
   );
 }
