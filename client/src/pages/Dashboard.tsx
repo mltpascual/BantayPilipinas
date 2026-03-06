@@ -1,8 +1,9 @@
-// Design: "Ops Center" — Fixed dashboard layout optimized for 1920x1080
-// Desktop: CSS Grid fixed layout, no drag/resize
-// Mobile (<768px): stacked single-column scrollable layout
+// Design: "Ops Center" — Main dashboard with draggable/resizable panels
+// Desktop: react-grid-layout 12-col grid with drag/resize, bounded to viewport (no overflow)
+// Mobile (<768px): stacked single-column scrollable layout, no drag/resize
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { GridLayout, verticalCompactor } from "react-grid-layout";
 import { useTheme } from "@/contexts/ThemeContext";
 
 import MapPanel from "@/components/panels/MapPanel";
@@ -14,6 +15,34 @@ import WeatherAirQualityPanel from "@/components/panels/WeatherAirQualityPanel";
 import PHNewsPanel from "@/components/panels/PHNewsPanel";
 import PAGASABulletinBanner from "@/components/PAGASABulletinBanner";
 
+interface PanelConfig {
+  id: string;
+  title: string;
+  icon: string;
+  component: React.ComponentType;
+  defaultLayout: { x: number; y: number; w: number; h: number; minW?: number; minH?: number };
+  mobileOrder: number;
+  mobileHeight: string;
+}
+
+const PANELS: PanelConfig[] = [
+  { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 9, h: 12, minW: 4, minH: 6 }, mobileOrder: 1, mobileHeight: "h-[55vh]" },
+  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 6, minW: 2, minH: 4 }, mobileOrder: 2, mobileHeight: "h-[280px]" },
+  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 6, w: 3, h: 6, minW: 2, minH: 4 }, mobileOrder: 3, mobileHeight: "h-[280px]" },
+  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 0, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 4, mobileHeight: "h-[300px]" },
+  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 3, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 5, mobileHeight: "h-[280px]" },
+  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 6, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 6, mobileHeight: "h-[400px]" },
+  { id: "phnews", title: "PH News", icon: "RSS", component: PHNewsPanel, defaultLayout: { x: 9, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 7, mobileHeight: "h-[400px]" },
+];
+
+function getDefaultLayout() {
+  return PANELS.map((p) => ({
+    i: p.id,
+    ...p.defaultLayout,
+    resizeHandles: ["se" as const, "sw" as const, "ne" as const, "nw" as const],
+  }));
+}
+
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
   useEffect(() => {
@@ -24,17 +53,61 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
+// Calculate maxRows based on available height so panels can't go past the viewport
+function useMaxRows(headerHeight: number, rowHeight: number, margin: number) {
+  const [maxRows, setMaxRows] = useState(19);
+  useEffect(() => {
+    const calc = () => {
+      const availableHeight = window.innerHeight - headerHeight - 12; // 12px for padding
+      const rows = Math.floor((availableHeight + margin) / (rowHeight + margin));
+      setMaxRows(rows);
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, [headerHeight, rowHeight, margin]);
+  return maxRows;
+}
+
 export default function Dashboard() {
   const { theme, toggleTheme } = useTheme();
   const [time, setTime] = useState(new Date());
+  const [visiblePanels] = useState<Set<string>>(
+    new Set(PANELS.map((p) => p.id))
+  );
+  const [layout, setLayout] = useState(getDefaultLayout());
+  const [containerWidth, setContainerWidth] = useState(window.innerWidth - 16);
+  const mainRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const maxRows = useMaxRows(48, 42, 6); // header ~48px, rowHeight 42, margin 6
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const isDark = theme === "dark";
+  useEffect(() => {
+    const handleResize = () => {
+      if (mainRef.current) {
+        setContainerWidth(mainRef.current.clientWidth);
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    const observer = new ResizeObserver(handleResize);
+    if (mainRef.current) observer.observe(mainRef.current);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      observer.disconnect();
+    };
+  }, []);
+
+  const onLayoutChange = useCallback((newLayout: any) => {
+    setLayout((prev: any) => {
+      const map = new Map(newLayout.map((l: any) => [l.i, l]));
+      return prev.map((item: any) => map.get(item.i) || item);
+    });
+  }, []);
 
   const phtTime = time.toLocaleString("en-PH", {
     timeZone: "Asia/Manila",
@@ -51,6 +124,14 @@ export default function Dashboard() {
     day: "numeric",
     year: "numeric",
   });
+
+  const filteredLayout = layout.filter((l: any) => visiblePanels.has(l.i));
+  const isDark = theme === "dark";
+
+  // Mobile: sorted panels by mobileOrder
+  const mobilePanels = [...PANELS]
+    .filter((p) => visiblePanels.has(p.id))
+    .sort((a, b) => a.mobileOrder - b.mobileOrder);
 
   return (
     <div
@@ -138,55 +219,53 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content — Desktop: Bounded Grid Layout, Mobile: Stacked */}
       {isMobile ? (
-        <main role="main" aria-label="Dashboard panels" className="flex-1 overflow-auto p-2 space-y-2 pb-safe" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <div className="h-[55vh] overflow-hidden rounded-lg"><MapPanel /></div>
-          <div className="h-[280px] overflow-hidden rounded-lg"><LivestreamPanel /></div>
-          <div className="h-[280px] overflow-hidden rounded-lg"><LivecamsPanel /></div>
-          <div className="h-[400px] overflow-hidden rounded-lg"><WeatherAirQualityPanel /></div>
-          <div className="h-[300px] overflow-hidden rounded-lg"><PhiVolcsPanel /></div>
-          <div className="h-[280px] overflow-hidden rounded-lg"><WaterLevelPanel /></div>
-          <div className="h-[400px] overflow-hidden rounded-lg"><PHNewsPanel /></div>
+        <main ref={mainRef} role="main" aria-label="Dashboard panels" className="flex-1 overflow-auto p-2 space-y-2 pb-safe" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {mobilePanels.map((panel) => {
+            const Component = panel.component;
+            return (
+              <div key={panel.id} className={`${panel.mobileHeight} overflow-hidden rounded-lg`}>
+                <Component />
+              </div>
+            );
+          })}
           <div className="h-4" />
         </main>
       ) : (
-        <main
-          role="main"
-          aria-label="Dashboard panels"
-          className="flex-1 overflow-hidden p-1.5"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(12, 1fr)",
-            gridTemplateRows: "1fr 1fr 40% ",
-            gap: "6px",
-            height: "calc(100vh - 48px)",
-          }}
-        >
-          {/* Row 1-2: Map (9 cols) + Livestream/VolcanoCams (3 cols) */}
-          <div style={{ gridColumn: "1 / 10", gridRow: "1 / 3" }} className="overflow-hidden rounded-lg border border-border">
-            <MapPanel />
-          </div>
-          <div style={{ gridColumn: "10 / 13", gridRow: "1 / 2" }} className="overflow-hidden rounded-lg border border-border">
-            <LivestreamPanel />
-          </div>
-          <div style={{ gridColumn: "10 / 13", gridRow: "2 / 3" }} className="overflow-hidden rounded-lg border border-border">
-            <LivecamsPanel />
-          </div>
-
-          {/* Row 3: PhiVolcs (3 cols) + Water Levels (3 cols) + Weather (3 cols) + PH News (3 cols) */}
-          <div style={{ gridColumn: "1 / 4", gridRow: "3 / 4" }} className="overflow-hidden rounded-lg border border-border">
-            <PhiVolcsPanel />
-          </div>
-          <div style={{ gridColumn: "4 / 7", gridRow: "3 / 4" }} className="overflow-hidden rounded-lg border border-border">
-            <WaterLevelPanel />
-          </div>
-          <div style={{ gridColumn: "7 / 10", gridRow: "3 / 4" }} className="overflow-hidden rounded-lg border border-border">
-            <WeatherAirQualityPanel />
-          </div>
-          <div style={{ gridColumn: "10 / 13", gridRow: "3 / 4" }} className="overflow-hidden rounded-lg border border-border">
-            <PHNewsPanel />
-          </div>
+        <main ref={mainRef} role="main" aria-label="Dashboard panels" className="flex-1 overflow-hidden p-1.5">
+          <GridLayout
+            className="layout"
+            layout={filteredLayout as any}
+            width={containerWidth}
+            gridConfig={{
+              cols: 12,
+              rowHeight: 42,
+              margin: [6, 6] as [number, number],
+              containerPadding: [0, 0] as [number, number],
+              maxRows: maxRows,
+            }}
+            dragConfig={{
+              enabled: true,
+              handle: ".drag-handle",
+            }}
+            resizeConfig={{
+              enabled: true,
+              handles: ["se", "sw", "ne", "nw"],
+            }}
+            compactor={verticalCompactor}
+            onLayoutChange={onLayoutChange as any}
+            autoSize={false}
+          >
+            {PANELS.filter((p) => visiblePanels.has(p.id)).map((panel) => {
+              const Component = panel.component;
+              return (
+                <div key={panel.id} className="overflow-hidden">
+                  <Component />
+                </div>
+              );
+            })}
+          </GridLayout>
         </main>
       )}
     </div>
