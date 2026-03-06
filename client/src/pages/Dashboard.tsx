@@ -27,12 +27,12 @@ interface PanelConfig {
 
 const PANELS: PanelConfig[] = [
   { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 7, h: 13, minW: 4, minH: 6 }, mobileOrder: 1, mobileHeight: "h-[55vh]" },
-  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 7, y: 0, w: 3, h: 13, minW: 2, minH: 4 }, mobileOrder: 4, mobileHeight: "h-[300px]" },
-  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 10, y: 0, w: 2, h: 6, minW: 2, minH: 3 }, mobileOrder: 3, mobileHeight: "h-[280px]" },
-  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 10, y: 6, w: 2, h: 7, minW: 2, minH: 3 }, mobileOrder: 2, mobileHeight: "h-[280px]" },
-  { id: "phnews", title: "PH News", icon: "RSS", component: PHNewsPanel, defaultLayout: { x: 0, y: 13, w: 3, h: 8, minW: 2, minH: 3 }, mobileOrder: 7, mobileHeight: "h-[400px]" },
-  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 3, y: 13, w: 3, h: 8, minW: 2, minH: 3 }, mobileOrder: 5, mobileHeight: "h-[280px]" },
-  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 6, y: 13, w: 4, h: 8, minW: 2, minH: 3 }, mobileOrder: 6, mobileHeight: "h-[400px]" },
+  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 7, y: 0, w: 2, h: 13, minW: 2, minH: 4 }, mobileOrder: 4, mobileHeight: "h-[300px]" },
+  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 13, minW: 2, minH: 3 }, mobileOrder: 3, mobileHeight: "h-[280px]" },
+  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 2, mobileHeight: "h-[280px]" },
+  { id: "phnews", title: "PH News", icon: "RSS", component: PHNewsPanel, defaultLayout: { x: 0, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 7, mobileHeight: "h-[400px]" },
+  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 3, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 5, mobileHeight: "h-[280px]" },
+  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 6, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 6, mobileHeight: "h-[400px]" },
 ];
 
 function getDefaultLayout() {
