@@ -458,3 +458,16 @@
 .marquee-loop:hover {
   animation-play-state: paused;
 }
+
+/* Mobile bottom navigation bar */
+.mobile-bottom-nav {
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-bottom-nav button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.mobile-bottom-nav button:active {
+  transform: scale(0.92);
+  transition: transform 0.1s ease;
+}

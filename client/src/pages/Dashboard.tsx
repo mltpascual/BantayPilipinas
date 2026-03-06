@@ -1,6 +1,6 @@
 // Design: "Ops Center" — Main dashboard with draggable/resizable panels
 // Desktop: react-grid-layout 12-col grid with drag/resize, bounded to viewport (no overflow)
-// Mobile (<768px): stacked single-column scrollable layout, no drag/resize
+// Mobile (<768px): Bottom tab navigation with 5 tabs — Home, Map, News, Video, Alerts
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { GridLayout, verticalCompactor } from "react-grid-layout";
@@ -33,6 +33,101 @@ const PANELS: PanelConfig[] = [
   { id: "phnews", title: "PH News", icon: "RSS", component: PHNewsPanel, defaultLayout: { x: 0, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 7, mobileHeight: "h-[400px]" },
   { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 3, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 5, mobileHeight: "h-[280px]" },
   { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 6, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 6, mobileHeight: "h-[400px]" },
+];
+
+// Mobile tab definitions
+type MobileTab = "home" | "map" | "news" | "video" | "alerts";
+
+interface TabConfig {
+  id: MobileTab;
+  label: string;
+  icon: (active: boolean) => React.ReactNode;
+}
+
+const MOBILE_TABS: TabConfig[] = [
+  {
+    id: "home",
+    label: "Home",
+    icon: (active) => (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth={active ? 0 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+        {active ? (
+          <path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1H4a1 1 0 01-1-1V10.5z" />
+        ) : (
+          <>
+            <path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1H4a1 1 0 01-1-1V10.5z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </>
+        )}
+      </svg>
+    ),
+  },
+  {
+    id: "map",
+    label: "Map",
+    icon: (active) => (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth={active ? 0 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+        {active ? (
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+        ) : (
+          <>
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </>
+        )}
+      </svg>
+    ),
+  },
+  {
+    id: "news",
+    label: "News",
+    icon: (active) => (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth={active ? 0 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+        {active ? (
+          <path d="M4 2h16a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zm1 4h14v2H5V6zm0 4h9v2H5v-2zm0 4h14v2H5v-2z" />
+        ) : (
+          <>
+            <rect x="2" y="2" width="20" height="20" rx="2" />
+            <line x1="5" y1="7" x2="19" y2="7" />
+            <line x1="5" y1="11" x2="14" y2="11" />
+            <line x1="5" y1="15" x2="19" y2="15" />
+          </>
+        )}
+      </svg>
+    ),
+  },
+  {
+    id: "video",
+    label: "Video",
+    icon: (active) => (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth={active ? 0 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+        {active ? (
+          <path d="M2 4a2 2 0 012-2h12a2 2 0 012 2v5l4-3v12l-4-3v5a2 2 0 01-2 2H4a2 2 0 01-2-2V4z" />
+        ) : (
+          <>
+            <rect x="2" y="4" width="16" height="16" rx="2" />
+            <path d="M22 7l-4 3 4 3V7z" />
+          </>
+        )}
+      </svg>
+    ),
+  },
+  {
+    id: "alerts",
+    label: "Alerts",
+    icon: (active) => (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth={active ? 0 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+        {active ? (
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4m0 4h.01" />
+        ) : (
+          <>
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </>
+        )}
+      </svg>
+    ),
+  },
 ];
 
 function getDefaultLayout() {
@@ -69,6 +164,80 @@ function useMaxRows(headerHeight: number, rowHeight: number, margin: number) {
   return maxRows;
 }
 
+// Mobile tab content renderer
+function MobileTabContent({ activeTab }: { activeTab: MobileTab }) {
+  switch (activeTab) {
+    case "home":
+      return (
+        <div className="flex-1 overflow-auto p-2 space-y-2 pb-2" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="h-[55vh] overflow-hidden rounded-lg">
+            <MapPanel />
+          </div>
+          <div className="h-[300px] overflow-hidden rounded-lg">
+            <PhiVolcsPanel />
+          </div>
+          <div className="h-[280px] overflow-hidden rounded-lg">
+            <LivestreamPanel />
+          </div>
+          <div className="h-[280px] overflow-hidden rounded-lg">
+            <LivecamsPanel />
+          </div>
+          <div className="h-[280px] overflow-hidden rounded-lg">
+            <WaterLevelPanel />
+          </div>
+          <div className="h-[400px] overflow-hidden rounded-lg">
+            <WeatherAirQualityPanel />
+          </div>
+          <div className="h-[400px] overflow-hidden rounded-lg">
+            <PHNewsPanel />
+          </div>
+          <div className="h-4" />
+        </div>
+      );
+    case "map":
+      return (
+        <div className="flex-1 overflow-hidden">
+          <MapPanel />
+        </div>
+      );
+    case "news":
+      return (
+        <div className="flex-1 overflow-hidden">
+          <PHNewsPanel />
+        </div>
+      );
+    case "video":
+      return (
+        <div className="flex-1 overflow-auto p-2 space-y-2 pb-2" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="h-[50vh] overflow-hidden rounded-lg">
+            <LivestreamPanel />
+          </div>
+          <div className="h-[50vh] overflow-hidden rounded-lg">
+            <LivecamsPanel />
+          </div>
+          <div className="h-4" />
+        </div>
+      );
+    case "alerts":
+      return (
+        <div className="flex-1 overflow-auto p-2 space-y-2 pb-2" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="h-[400px] overflow-hidden rounded-lg">
+            <PhiVolcsPanel />
+          </div>
+          <div className="h-[300px] overflow-hidden rounded-lg">
+            <WaterLevelPanel />
+          </div>
+          <div className="h-[400px] overflow-hidden rounded-lg">
+            <WeatherAirQualityPanel />
+          </div>
+          <div className="h-4" />
+        </div>
+      );
+    default:
+      return null;
+  }
+}
+
 export default function Dashboard() {
   const { theme, toggleTheme } = useTheme();
   const [time, setTime] = useState(new Date());
@@ -80,6 +249,7 @@ export default function Dashboard() {
   const mainRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const maxRows = useMaxRows(48, 42, 6); // header ~48px, rowHeight 42, margin 6
+  const [activeTab, setActiveTab] = useState<MobileTab>("home");
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
@@ -184,11 +354,6 @@ export default function Dashboard() {
   const filteredLayout = layout.filter((l: any) => visiblePanels.has(l.i));
   const isDark = theme === "dark";
 
-  // Mobile: sorted panels by mobileOrder
-  const mobilePanels = [...PANELS]
-    .filter((p) => visiblePanels.has(p.id))
-    .sort((a, b) => a.mobileOrder - b.mobileOrder);
-
   return (
     <div
       className="h-screen w-screen flex flex-col overflow-hidden bg-background"
@@ -233,7 +398,7 @@ export default function Dashboard() {
 
           <div className="flex-1" />
 
-          {/* Layout controls */}
+          {/* Layout controls — desktop only */}
           {!isMobile && (
             <div className="flex items-center gap-1">
               <button
@@ -323,19 +488,88 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Main Content — Desktop: Bounded Grid Layout, Mobile: Stacked */}
+      {/* Main Content — Desktop: Bounded Grid Layout, Mobile: Tab-based views */}
       {isMobile ? (
-        <main ref={mainRef} role="main" aria-label="Dashboard panels" className="flex-1 overflow-auto p-2 space-y-2 pb-safe" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {mobilePanels.map((panel) => {
-            const Component = panel.component;
-            return (
-              <div key={panel.id} className={`${panel.mobileHeight} overflow-hidden rounded-lg`}>
-                <Component />
-              </div>
-            );
-          })}
-          <div className="h-4" />
-        </main>
+        <>
+          {/* Mobile tab content area */}
+          <main
+            ref={mainRef}
+            role="main"
+            aria-label="Dashboard panels"
+            className="flex-1 flex flex-col overflow-hidden"
+            style={{ paddingBottom: "64px" }}
+          >
+            <MobileTabContent activeTab={activeTab} />
+          </main>
+
+          {/* Mobile bottom navigation bar */}
+          <nav
+            role="navigation"
+            aria-label="Mobile navigation"
+            className="fixed bottom-0 left-0 right-0 z-[9999] mobile-bottom-nav"
+            style={{
+              height: "64px",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            }}
+          >
+            {/* Frosted glass background */}
+            <div
+              className="absolute inset-0"
+              style={{
+                backdropFilter: "blur(20px) saturate(180%)",
+                WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              }}
+            />
+            {/* Background fill */}
+            <div
+              className={`absolute inset-0 ${
+                isDark
+                  ? "bg-[oklch(0.12_0.015_260_/_0.85)]"
+                  : "bg-[oklch(0.995_0.002_80_/_0.88)]"
+              }`}
+            />
+            {/* Top border */}
+            <div
+              className={`absolute top-0 left-0 right-0 h-px ${
+                isDark ? "bg-[oklch(0.30_0.02_260_/_0.5)]" : "bg-[oklch(0.88_0.008_80_/_0.7)]"
+              }`}
+            />
+
+            {/* Tab buttons */}
+            <div className="relative flex items-center justify-around h-[64px] px-2">
+              {MOBILE_TABS.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex flex-col items-center justify-center gap-0.5 w-16 h-full transition-colors duration-200 ${
+                      isActive
+                        ? "text-[#DC2626]"
+                        : isDark
+                        ? "text-[oklch(0.55_0.01_260)]"
+                        : "text-[oklch(0.50_0.015_260)]"
+                    }`}
+                    aria-label={tab.label}
+                    aria-current={isActive ? "page" : undefined}
+                  >
+                    <div className="relative">
+                      {tab.icon(isActive)}
+                    </div>
+                    <span
+                      className={`text-[10px] leading-tight ${
+                        isActive ? "font-semibold" : "font-medium"
+                      }`}
+                      style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
+                    >
+                      {tab.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        </>
       ) : (
         <main ref={mainRef} role="main" aria-label="Dashboard panels" className="flex-1 overflow-hidden p-1.5">
           <GridLayout
