@@ -10,7 +10,6 @@ import MapPanel from "@/components/panels/MapPanel";
 import LivestreamPanel from "@/components/panels/LivestreamPanel";
 import LivecamsPanel from "@/components/panels/LivecamsPanel";
 import AccidentsPanel from "@/components/panels/AccidentsPanel";
-import MMDAPanel from "@/components/panels/MMDAPanel";
 import PhiVolcsPanel from "@/components/panels/PhiVolcsPanel";
 import WaterLevelPanel from "@/components/panels/WaterLevelPanel";
 import WeatherAirQualityPanel from "@/components/panels/WeatherAirQualityPanel";
@@ -33,12 +32,11 @@ const PANELS: PanelConfig[] = [
   { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 6, minW: 2, minH: 4 }, mobileOrder: 2, mobileHeight: "h-[280px]" },
   { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 6, w: 3, h: 6, minW: 2, minH: 4 }, mobileOrder: 3, mobileHeight: "h-[280px]" },
   { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 9, y: 12, w: 3, h: 5, minW: 2, minH: 4 }, mobileOrder: 4, mobileHeight: "h-[400px]" },
-  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 0, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 5, mobileHeight: "h-[300px]" },
-  { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 3, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 6, mobileHeight: "h-[300px]" },
-  { id: "mmda", title: "MMDA", icon: "MMDA", component: MMDAPanel, defaultLayout: { x: 6, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 7, mobileHeight: "h-[300px]" },
-  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 9, y: 12, w: 3, h: 7, minW: 2, minH: 3 }, mobileOrder: 8, mobileHeight: "h-[280px]" },
-  { id: "social", title: "Social Monitor", icon: "SM", component: SocialMediaPanel, defaultLayout: { x: 0, y: 19, w: 4, h: 6, minW: 2, minH: 3 }, mobileOrder: 9, mobileHeight: "h-[350px]" },
-  { id: "phnews", title: "PH News", icon: "RSS", component: PHNewsPanel, defaultLayout: { x: 4, y: 19, w: 8, h: 6, minW: 2, minH: 3 }, mobileOrder: 10, mobileHeight: "h-[400px]" },
+  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 0, y: 12, w: 4, h: 7, minW: 2, minH: 3 }, mobileOrder: 5, mobileHeight: "h-[300px]" },
+  { id: "accidents", title: "Accidents", icon: "INC", component: AccidentsPanel, defaultLayout: { x: 4, y: 12, w: 4, h: 7, minW: 2, minH: 3 }, mobileOrder: 6, mobileHeight: "h-[300px]" },
+  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 8, y: 12, w: 4, h: 7, minW: 2, minH: 3 }, mobileOrder: 7, mobileHeight: "h-[280px]" },
+  { id: "social", title: "Social Monitor", icon: "SM", component: SocialMediaPanel, defaultLayout: { x: 0, y: 19, w: 4, h: 6, minW: 2, minH: 3 }, mobileOrder: 8, mobileHeight: "h-[350px]" },
+  { id: "phnews", title: "PH News", icon: "RSS", component: PHNewsPanel, defaultLayout: { x: 4, y: 19, w: 8, h: 6, minW: 2, minH: 3 }, mobileOrder: 9, mobileHeight: "h-[400px]" },
 ];
 
 function getDefaultLayout() {

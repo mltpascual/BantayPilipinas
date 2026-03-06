@@ -6,7 +6,7 @@ import PanelWrapper from "@/components/PanelWrapper";
 import { EarthquakeFeature, GDACSItem, fetchEarthquakes, fetchGDACS, formatMagnitude, timeAgo } from "@/lib/feeds";
 
 export default function PhiVolcsPanel() {
-  const [tab, setTab] = useState<"quakes" | "disasters">("disasters");
+  const [tab, setTab] = useState<"quakes" | "disasters">("quakes");
   const [earthquakes, setEarthquakes] = useState<EarthquakeFeature[]>([]);
   const [disasters, setDisasters] = useState<GDACSItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,16 +44,6 @@ export default function PhiVolcsPanel() {
       <div className="flex flex-col h-full gap-1.5">
         <div className="flex gap-1 shrink-0">
           <button
-            onClick={() => setTab("disasters")}
-            className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
-              tab === "disasters"
-                ? "bg-[#FF6B35] text-white shadow-[0_0_8px_#FF6B3540]"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            GDACS Alerts ({disasters.length})
-          </button>
-          <button
             onClick={() => setTab("quakes")}
             className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
               tab === "quakes"
@@ -62,6 +52,16 @@ export default function PhiVolcsPanel() {
             }`}
           >
             Earthquakes ({earthquakes.length})
+          </button>
+          <button
+            onClick={() => setTab("disasters")}
+            className={`text-[10px] font-semibold px-2 py-1 rounded transition-all ${
+              tab === "disasters"
+                ? "bg-[#FF6B35] text-white shadow-[0_0_8px_#FF6B3540]"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            GDACS Alerts ({disasters.length})
           </button>
         </div>
 
