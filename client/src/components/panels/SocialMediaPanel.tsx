@@ -199,7 +199,7 @@ export default function SocialMediaPanel() {
     >
       <div className="h-full flex flex-col gap-1.5 overflow-hidden">
         {/* Category filter chips */}
-        <div className="flex gap-1 flex-wrap px-0.5 shrink-0">
+        <div className="flex gap-1 flex-wrap sm:flex-wrap px-0.5 shrink-0 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setFilter("all")}
             className={`px-2 py-0.5 rounded text-[8px] font-bold tracking-wider transition-all border ${
@@ -287,11 +287,11 @@ export default function SocialMediaPanel() {
 
                     <div className="flex-1 min-w-0">
                       {/* Author + time */}
-                      <div className="flex items-center gap-1.5 mb-0.5">
+                      <div className="flex items-center gap-1 sm:gap-1.5 mb-0.5 flex-wrap">
                         <span className="text-[10px] font-bold text-foreground">{post.author}</span>
-                        <span className="text-[9px] text-muted-foreground font-mono">{post.authorHandle}</span>
+                        <span className="text-[8px] sm:text-[9px] text-muted-foreground font-mono">{post.authorHandle}</span>
                         <span className="text-[8px] text-muted-foreground">·</span>
-                        <span className="text-[9px] text-muted-foreground font-mono">{timeAgo(post.timestamp)}</span>
+                        <span className="text-[8px] sm:text-[9px] text-muted-foreground font-mono">{timeAgo(post.timestamp)}</span>
                         <span
                           className="text-[7px] font-bold px-1 py-0.5 rounded tracking-wider ml-auto shrink-0"
                           style={{ backgroundColor: `${catConfig.color}20`, color: catConfig.color }}

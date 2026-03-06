@@ -119,7 +119,7 @@ export default function PHNewsPanel() {
   return (
     <PanelWrapper title="PH News" icon="RSS" status={loading ? "idle" : "active"} freshnessSource="ph-news">
       {/* Filter bar */}
-      <div className={`sticky top-0 z-10 px-2 py-1.5 border-b flex items-center gap-1 ${isDark ? "bg-card/95 border-border" : "bg-white/95 border-gray-200"} backdrop-blur-sm`}>
+      <div className={`sticky top-0 z-10 px-2 py-1.5 border-b flex items-center gap-1 overflow-x-auto scrollbar-none ${isDark ? "bg-card/95 border-border" : "bg-white/95 border-gray-200"} backdrop-blur-sm`}>
         {filterBtn("all", `All (${totalToday})`)}
         {filterBtn("major", "National")}
         {filterBtn("business", "Business")}

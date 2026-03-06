@@ -1084,7 +1084,7 @@ export default function MapPanel() {
           {displayAlerts.map((alert) => (
             <div
               key={alert.id}
-              className={`flex items-center gap-2 px-3 py-1.5 text-[11px] font-semibold ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[11px] font-semibold ${
                 alert.severity === "critical"
                   ? "bg-[#CE1126]/95 text-white"
                   : "bg-[#FF6B35]/90 text-white"
@@ -1110,10 +1110,10 @@ export default function MapPanel() {
 
 
 
-      {/* Location Search Bar — centered */}
-      <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} left-1/2 -translate-x-1/2 z-[1001] transition-all`}>
+      {/* Location Search Bar — centered, responsive */}
+      <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} left-2 sm:left-1/2 sm:-translate-x-1/2 z-[1001] transition-all max-w-[calc(100%-80px)] sm:max-w-none`}>
         <div className="relative">
-          <div className={`flex items-center backdrop-blur-md rounded-lg shadow-lg border transition-all ${showSearch ? "w-72" : "w-48"} ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.95)] border-[oklch(0.25_0.02_260)]' : 'bg-white/95 border-gray-200'}`}>
+          <div className={`flex items-center backdrop-blur-md rounded-lg shadow-lg border transition-all ${showSearch ? "w-56 sm:w-72" : "w-36 sm:w-48"} ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.95)] border-[oklch(0.25_0.02_260)]' : 'bg-white/95 border-gray-200'}`}>
             <svg className={`w-4 h-4 ml-3 shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               ref={searchInputRef}
@@ -1155,8 +1155,9 @@ export default function MapPanel() {
         </div>
       </div>
 
-      {/* Quick Zoom Presets — right-aligned */}      <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} right-2 z-[1001] transition-all`}>
-        <div className={`flex items-center gap-0.5 backdrop-blur-md rounded-lg shadow-lg border p-0.5 overflow-x-auto scrollbar-none ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.92)] border-[oklch(0.25_0.02_260)]' : 'bg-white/92 border-gray-200'}`}>
+      {/* Quick Zoom Presets — right-aligned, responsive */}
+      <div className={`absolute ${displayAlerts.length > 0 ? "top-20 sm:top-10" : "top-10 sm:top-2"} right-2 z-[1001] transition-all max-w-[calc(100%-16px)] sm:max-w-none`}>
+        <div className={`flex items-center gap-0.5 backdrop-blur-md rounded-lg shadow-lg border p-0.5 overflow-x-auto scrollbar-none max-w-full ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.92)] border-[oklch(0.25_0.02_260)]' : 'bg-white/92 border-gray-200'}`}>
           {QUICK_ZOOM_PRESETS.map((preset) => (
             <button
               key={preset.label}
@@ -1176,17 +1177,17 @@ export default function MapPanel() {
         </div>
       </div>
 
-      {/* Collapsible LAYERS panel — bottom-left, opens upward */}
-      <div className="absolute bottom-2 left-1 sm:left-2 z-[1000] flex flex-col items-start">
+      {/* Collapsible LAYERS panel — bottom-left, opens upward, responsive */}
+      <div className="absolute bottom-8 sm:bottom-2 left-1 sm:left-2 z-[1000] flex flex-col items-start">
         {/* Dropdown panel — opens upward above the button */}
         {layersPanelOpen && (
-          <div className={`mb-1 rounded-lg backdrop-blur-md shadow-xl border overflow-hidden w-52 ${
+          <div className={`mb-1 rounded-lg backdrop-blur-md shadow-xl border overflow-hidden w-44 sm:w-52 ${
             isDark
               ? 'bg-[oklch(0.08_0.015_260_/_0.96)] border-[oklch(0.22_0.02_260)]'
               : 'bg-white/96 border-gray-200'
           }`}>
             {/* Layer items */}
-            <div className="py-1 max-h-[60vh] overflow-y-auto">
+            <div className="py-1 max-h-[45vh] sm:max-h-[60vh] overflow-y-auto">
               {[
                 { key: 'gdacs', label: `Alerts${gdacsAlerts.length > 0 ? ` (${gdacsAlerts.length})` : ''}`, active: showGDACS, toggle: toggleGDACS, color: '#FF4444', icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> },
                 { key: 'usgs', label: `Earthquakes${usgsQuakes.length > 0 ? ` (${usgsQuakes.length})` : ''}`, active: showUSGS, toggle: toggleUSGS, color: '#FF8C00', icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l2-2 3 3 4-6 3 4 4-3 4 4"/></svg> },
@@ -1257,7 +1258,7 @@ export default function MapPanel() {
 
 
       {/* Attribution */}
-      <div className="absolute bottom-2 right-2 z-[1000] flex flex-col items-end gap-0.5">
+      <div className="absolute bottom-8 sm:bottom-2 right-1 sm:right-2 z-[1000] flex flex-col items-end gap-0.5">
         <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>CARTO / OpenStreetMap</div>
         <div className={`text-[7px] font-mono ${isDark ? 'text-[oklch(0.45_0.01_260)]' : 'text-gray-400'}`}>Data: PAGASA / UPRI-NOAH / PHIVOLCS / GDACS / USGS</div>
       </div>

@@ -196,7 +196,7 @@ export default function WeatherAirQualityPanel() {
                   </div>
 
                   {/* Row 2: Wind + PM2.5 + PM10 + UV — all at a glance */}
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
                     {w && (
                       <span className="text-[7px] font-mono text-muted-foreground">
                         💨 {w.windspeed} km/h {getWindDir(w.winddirection)}
