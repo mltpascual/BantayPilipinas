@@ -110,6 +110,7 @@ export default function MapPanel() {
   const typhoonMarkersRef = useRef<maplibregl.Marker[]>([]);
   const [activeQuickZoom, setActiveQuickZoom] = useState<string>("PH");
   const [showQuickZoom, setShowQuickZoom] = useState(true);
+  const [layersPanelOpen, setLayersPanelOpen] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [hazardLoading, setHazardLoading] = useState<Record<string, boolean>>({});
 
@@ -1267,66 +1268,82 @@ export default function MapPanel() {
         </div>
       </div>
 
-      {/* Layer toggle controls — 4 columns x 3 rows grid */}
+      {/* Collapsible LAYERS panel */}
       <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} left-1 sm:left-2 z-[1000] transition-all`}>
-        <div className="grid grid-cols-4 gap-1">
-          {/* Row 1 */}
-          <button onClick={toggleGDACS} className={btnClass(showGDACS)} style={showGDACS ? { color: "#FF4444", borderColor: "#FF4444" } : {}} title="Toggle GDACS Disaster Alerts (last 23h)">
-            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Alerts{gdacsAlerts.length > 0 ? ` (${gdacsAlerts.length})` : ""}
-          </button>
-          <button onClick={toggleUSGS} className={btnClass(showUSGS)} style={showUSGS ? { color: "#FF8C00", borderColor: "#FF8C00" } : {}} title="Toggle USGS Earthquake Markers">
-            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l2-2 3 3 4-6 3 4 4-3 4 4"/></svg> Earthquakes{usgsQuakes.length > 0 ? ` (${usgsQuakes.length})` : ""}
-          </button>
-          <button onClick={toggleTyphoonTrack} className={btnClass(showTyphoonTrack)} style={showTyphoonTrack ? { color: "#00BCD4", borderColor: "#00BCD4" } : {}} title="Toggle PAGASA Typhoon Track">
-            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg> Typhoon
-          </button>
-          <button onClick={toggleWaterLevels} className={btnClass(showWaterLevels)} style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}} title="Toggle water level stations">
-            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> Water Lvl
-          </button>
-          {/* Row 2 */}
-          <button onClick={toggleFlood} className={btnClass(showFlood)} style={showFlood ? { color: "#41B6E6", borderColor: "#41B6E6" } : {}} title="Toggle NOAH Flood Hazard">
-            {hazardLoading.flood ? (
-              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            ) : (
-              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
-            )} Flood
-          </button>
-          <button onClick={toggleLandslide} className={btnClass(showLandslide)} style={showLandslide ? { color: "#F2994A", borderColor: "#F2994A" } : {}} title="Toggle NOAH Landslide Hazard">
-            {hazardLoading.landslide ? (
-              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            ) : (
-              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
-            )} Landslide
-          </button>
-          <button onClick={toggleStormSurge} className={btnClass(showStormSurge)} style={showStormSurge ? { color: "#B482FF", borderColor: "#B482FF" } : {}} title="Toggle NOAH Storm Surge Hazard">
-            {hazardLoading.stormsurge ? (
-              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            ) : (
-              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
-            )} Surge
-          </button>
-          <button onClick={toggleVolcano} className={btnClass(showVolcano)} style={showVolcano ? { color: "#CE1126", borderColor: "#CE1126" } : {}} title="Toggle Volcano Hazard Zones (PHIVOLCS)">
-            {hazardLoading.volcano ? (
-              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            ) : (
-              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
-            )} Volcano
-          </button>
-          {/* Row 3 */}
-          <button onClick={toggleHospitals} className={btnClass(showHospitals)} style={showHospitals ? { color: "#00D4FF", borderColor: "#00D4FF" } : {}} title="Toggle NOAH Hospitals">
-            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v5"/><path d="M10 11h4"/><rect x="4" y="6" width="16" height="16" rx="2"/></svg> Hospital
-          </button>
-          <button onClick={toggleSchools} className={btnClass(showSchools)} style={showSchools ? { color: "#FCD116", borderColor: "#FCD116" } : {}} title="Toggle NOAH Schools">
-            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> School
-          </button>
-          <button onClick={toggleEvacCenters} className={btnClass(showEvacCenters)} style={showEvacCenters ? { color: "#4CAF50", borderColor: "#4CAF50" } : {}} title="Toggle Evacuation Centers">
-            {hazardLoading.evac ? (
-              <svg className="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            ) : (
-              <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            )} Evacuation
-          </button>
-        </div>
+        {/* LAYERS header button */}
+        <button
+          onClick={() => setLayersPanelOpen(v => !v)}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-[0.15em] uppercase transition-all backdrop-blur-md shadow-lg border ${
+            isDark
+              ? 'bg-[oklch(0.10_0.015_260_/_0.95)] border-[oklch(0.25_0.02_260)] text-gray-300 hover:bg-[oklch(0.14_0.02_260)]'
+              : 'bg-white/95 border-gray-200 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/></svg>
+          LAYERS
+          <svg className={`w-3 h-3 transition-transform ${layersPanelOpen ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+
+        {/* Dropdown panel */}
+        {layersPanelOpen && (
+          <div className={`mt-1 rounded-lg backdrop-blur-md shadow-xl border overflow-hidden w-52 ${
+            isDark
+              ? 'bg-[oklch(0.08_0.015_260_/_0.96)] border-[oklch(0.22_0.02_260)]'
+              : 'bg-white/96 border-gray-200'
+          }`}>
+            {/* Layer items */}
+            <div className="py-1 max-h-[60vh] overflow-y-auto">
+              {[
+                { key: 'gdacs', label: `Alerts${gdacsAlerts.length > 0 ? ` (${gdacsAlerts.length})` : ''}`, active: showGDACS, toggle: toggleGDACS, color: '#FF4444', icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> },
+                { key: 'usgs', label: `Earthquakes${usgsQuakes.length > 0 ? ` (${usgsQuakes.length})` : ''}`, active: showUSGS, toggle: toggleUSGS, color: '#FF8C00', icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l2-2 3 3 4-6 3 4 4-3 4 4"/></svg> },
+                { key: 'typhoon', label: 'Typhoon Track', active: showTyphoonTrack, toggle: toggleTyphoonTrack, color: '#00BCD4', icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg> },
+                { key: 'water', label: 'Water Levels', active: showWaterLevels, toggle: toggleWaterLevels, color: '#0038A8', icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> },
+                { key: 'flood', label: 'Flood Hazard', active: showFlood, toggle: toggleFlood, color: '#41B6E6', loading: hazardLoading.flood, icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> },
+                { key: 'landslide', label: 'Landslide', active: showLandslide, toggle: toggleLandslide, color: '#F2994A', loading: hazardLoading.landslide, icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg> },
+                { key: 'surge', label: 'Storm Surge', active: showStormSurge, toggle: toggleStormSurge, color: '#B482FF', loading: hazardLoading.stormsurge, icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg> },
+                { key: 'volcano', label: 'Volcano', active: showVolcano, toggle: toggleVolcano, color: '#CE1126', loading: hazardLoading.volcano, icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg> },
+                { key: 'hospital', label: 'Hospitals', active: showHospitals, toggle: toggleHospitals, color: '#00D4FF', icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v5"/><path d="M10 11h4"/><rect x="4" y="6" width="16" height="16" rx="2"/></svg> },
+                { key: 'school', label: 'Schools', active: showSchools, toggle: toggleSchools, color: '#FCD116', icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> },
+                { key: 'evac', label: 'Evacuation Centers', active: showEvacCenters, toggle: toggleEvacCenters, color: '#4CAF50', loading: hazardLoading.evac, icon: <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+              ].map((layer) => (
+                <button
+                  key={layer.key}
+                  onClick={layer.toggle}
+                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[11px] transition-colors ${
+                    isDark
+                      ? 'hover:bg-white/5 text-gray-300'
+                      : 'hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                    layer.active
+                      ? 'border-transparent'
+                      : isDark ? 'border-[oklch(0.35_0.02_260)]' : 'border-gray-300'
+                  }`} style={layer.active ? { backgroundColor: layer.color, borderColor: layer.color } : {}}>
+                    {layer.active && (
+                      <svg className="w-2.5 h-2.5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    )}
+                  </div>
+                  {/* Icon */}
+                  <span className="shrink-0" style={layer.active ? { color: layer.color } : { color: isDark ? '#6b7280' : '#9ca3af' }}>
+                    {layer.loading ? (
+                      <svg className="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    ) : layer.icon}
+                  </span>
+                  {/* Label */}
+                  <span className={`font-medium tracking-wide ${
+                    layer.active
+                      ? isDark ? 'text-gray-100' : 'text-gray-900'
+                      : isDark ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
+                    {layer.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Legend overlay */}
