@@ -8,7 +8,7 @@ import Dashboard from "./pages/Dashboard";
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark" switchable>
+      <ThemeProvider defaultTheme="light" switchable>
         <FreshnessProvider>
           <TooltipProvider>
             <Toaster />
