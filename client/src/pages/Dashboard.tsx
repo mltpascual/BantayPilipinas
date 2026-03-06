@@ -2,7 +2,7 @@
 // Desktop: react-grid-layout 12-col grid with drag/resize, bounded to viewport (no overflow)
 // Mobile (<768px): stacked single-column scrollable layout, no drag/resize
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { GridLayout, verticalCompactor } from "react-grid-layout";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -109,6 +109,62 @@ export default function Dashboard() {
     });
   }, []);
 
+  // Download current layout as JSON
+  const handleDownloadLayout = useCallback(() => {
+    const exportData = layout.map((l: any) => ({
+      id: l.i,
+      x: l.x,
+      y: l.y,
+      w: l.w,
+      h: l.h,
+    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `layout-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [layout]);
+
+  // Import layout from JSON file
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleImportLayout = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const imported = JSON.parse(ev.target?.result as string);
+        if (Array.isArray(imported)) {
+          const newLayout = imported.map((item: any) => ({
+            i: item.id || item.i,
+            x: item.x,
+            y: item.y,
+            w: item.w,
+            h: item.h,
+            resizeHandles: ["se" as const, "sw" as const, "ne" as const, "nw" as const],
+          }));
+          setLayout(newLayout);
+        }
+      } catch {
+        alert("Invalid layout file");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }, []);
+
+  // Reset to default layout
+  const handleResetLayout = useCallback(() => {
+    setLayout(getDefaultLayout());
+  }, []);
+
   const phtTime = time.toLocaleString("en-PH", {
     timeZone: "Asia/Manila",
     hour: "2-digit",
@@ -176,6 +232,54 @@ export default function Dashboard() {
           </div>
 
           <div className="flex-1" />
+
+          {/* Layout controls */}
+          {!isMobile && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleDownloadLayout}
+                className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                title="Download Layout"
+                aria-label="Download current layout as JSON"
+              >
+                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
+              <button
+                onClick={handleImportLayout}
+                className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                title="Import Layout"
+                aria-label="Import layout from JSON file"
+              >
+                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </button>
+              <button
+                onClick={handleResetLayout}
+                className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                title="Reset to Default Layout"
+                aria-label="Reset panels to default layout"
+              >
+                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="1 4 1 10 7 10" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </div>
+          )}
 
           {/* Theme toggle */}
           {toggleTheme && (
