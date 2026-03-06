@@ -293,8 +293,15 @@ function parseGDACSXml(rawText: string): GDACSItem[] {
     const country = item.getElementsByTagName("gdacs:country")[0]?.textContent || "";
     const icon = item.getElementsByTagName("gdacs:icon")[0]?.textContent || "";
 
-    const text = `${title} ${desc}`.toLowerCase();
-    const isRelevant = text.includes("philipp") || text.includes("pacific") || text.includes("typhoon") || text.includes("tropical") || text.includes("south china") || text.includes("manila");
+    const text = `${title} ${desc} ${country}`.toLowerCase();
+
+    // Strict Philippines filter: country field, coordinates within PH bounding box, or text mentions
+    const isInPHBounds = lat !== null && lon !== null && lat >= 4.5 && lat <= 21.5 && lon >= 116 && lon <= 127;
+    const countryIsPH = country.toLowerCase().includes("philipp") || country.toLowerCase() === "ph";
+    const textMentionsPH = text.includes("philipp") || text.includes("manila") || text.includes("mindanao") || text.includes("visayas") || text.includes("luzon") || text.includes("cebu") || text.includes("davao");
+    const isRelevant = isInPHBounds || countryIsPH || textMentionsPH;
+
+    if (!isRelevant) return; // Skip non-Philippines alerts entirely
 
     let eventType = "unknown";
     const evtTag = item.getElementsByTagName("gdacs:eventtype")[0]?.textContent || "";
@@ -324,20 +331,18 @@ function parseGDACSXml(rawText: string): GDACSItem[] {
       else if (titleLower.includes("orange") || titleLower.includes("alert 2")) severity = "medium";
     }
 
-    if (isRelevant || results.length < 10) {
-      results.push({
-        title: decodeHTMLEntities(title).trim(),
-        description: stripHTML(decodeHTMLEntities(desc)).trim().slice(0, 300),
-        link: link.trim(),
-        pubDate,
-        eventType,
-        severity,
-        lat,
-        lon,
-        country,
-        icon,
-      });
-    }
+    results.push({
+      title: decodeHTMLEntities(title).trim(),
+      description: stripHTML(decodeHTMLEntities(desc)).trim().slice(0, 300),
+      link: link.trim(),
+      pubDate,
+      eventType,
+      severity,
+      lat,
+      lon,
+      country,
+      icon,
+    });
   });
 
   return results;
@@ -378,7 +383,9 @@ export async function fetchGDACS(): Promise<GDACSItem[]> {
         const pubDate = item.pubDate || "";
 
         const text = `${title} ${desc}`.toLowerCase();
-        const isRelevant = text.includes("philipp") || text.includes("pacific") || text.includes("typhoon") || text.includes("tropical") || text.includes("south china") || text.includes("manila");
+        // Strict Philippines filter for rss2json path (no coordinates available)
+        const textMentionsPH = text.includes("philipp") || text.includes("manila") || text.includes("mindanao") || text.includes("visayas") || text.includes("luzon") || text.includes("cebu") || text.includes("davao");
+        if (!textMentionsPH) continue; // Skip non-Philippines alerts
 
         let eventType = "unknown";
         const titleLower = title.toLowerCase();
@@ -391,9 +398,7 @@ export async function fetchGDACS(): Promise<GDACSItem[]> {
         if (titleLower.includes("red") || titleLower.includes("alert 3")) severity = "high";
         else if (titleLower.includes("orange") || titleLower.includes("alert 2")) severity = "medium";
 
-        if (isRelevant || results.length < 10) {
-          results.push({ title, description: desc, link, pubDate, eventType, severity, lat: null, lon: null, country: "", icon: "" });
-        }
+        results.push({ title, description: desc, link, pubDate, eventType, severity, lat: null, lon: null, country: "", icon: "" });
       }
       // rss2json doesn't preserve geo: namespace fields, so try allorigins for coordinates
       if (results.length > 0) {
