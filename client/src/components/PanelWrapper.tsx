@@ -3,6 +3,7 @@
 // Entrance animation, theme-aware styling
 
 import { ReactNode, useEffect, useState } from "react";
+import { FreshnessIndicator } from "@/contexts/FreshnessContext";
 
 interface PanelWrapperProps {
   title: string;
@@ -12,6 +13,7 @@ interface PanelWrapperProps {
   className?: string;
   badge?: string;
   onMaximize?: () => void;
+  freshnessSource?: string;
 }
 
 export default function PanelWrapper({
@@ -22,6 +24,7 @@ export default function PanelWrapper({
   className = "",
   onMaximize,
   badge,
+  freshnessSource,
 }: PanelWrapperProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function PanelWrapper({
         {status === "live" && <span className="live-badge">LIVE</span>}
         {status === "alert" && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-ph-yellow/20 text-ph-yellow font-mono">ALERT</span>}
         {badge && <span className="text-[8px] font-mono text-muted-foreground">{badge}</span>}
+        {freshnessSource && <FreshnessIndicator source={freshnessSource} className="ml-1" />}
         <div className="flex-1" />
         {onMaximize && (
           <button

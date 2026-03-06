@@ -188,8 +188,11 @@ export async function fetchAccidentNews(): Promise<FeedItem[]> {
 
 export async function fetchEarthquakes(): Promise<EarthquakeFeature[]> {
   try {
-    const url = cacheBustUrl("https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minlatitude=4.5&maxlatitude=21.5&minlongitude=116&maxlongitude=127&limit=30&orderby=time");
-    const response = await fetch(url, { cache: "no-store" });
+    // USGS API doesn't accept unknown query params, so avoid cacheBustUrl
+    const response = await fetch(
+      "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minlatitude=4.5&maxlatitude=21.5&minlongitude=116&maxlongitude=127&limit=30&orderby=time",
+      { cache: "no-store", headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } }
+    );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     return data.features || [];

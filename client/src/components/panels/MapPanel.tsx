@@ -18,6 +18,7 @@ import {
 import { isDataFresh } from "@/lib/fetchUtils";
 import { searchProvinces, type Province } from "@/lib/provinces";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useFreshness, FreshnessIndicator } from "@/contexts/FreshnessContext";
 
 // Basemap styles
 const MAP_STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
@@ -70,9 +71,22 @@ interface AlertItem {
   timestamp: Date;
 }
 
+// Quick Zoom Presets — key Philippine areas
+const QUICK_ZOOM_PRESETS = [
+  { label: "PH", name: "Philippines", lat: 12.8797, lon: 121.774, zoom: 5.5 },
+  { label: "NCR", name: "Metro Manila", lat: 14.5995, lon: 120.9842, zoom: 10.5 },
+  { label: "CEB", name: "Cebu", lat: 10.3157, lon: 123.8854, zoom: 11 },
+  { label: "DVO", name: "Davao", lat: 7.1907, lon: 125.4553, zoom: 11 },
+  { label: "TAC", name: "Tacloban", lat: 11.2543, lon: 124.9600, zoom: 12 },
+  { label: "BIC", name: "Bicol", lat: 13.1391, lon: 123.7438, zoom: 9 },
+  { label: "CAG", name: "Cagayan Valley", lat: 17.6132, lon: 121.7270, zoom: 8.5 },
+  { label: "ZAM", name: "Zamboanga", lat: 6.9214, lon: 122.0790, zoom: 11 },
+];
+
 export default function MapPanel() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { updateTimestamp } = useFreshness();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -92,6 +106,10 @@ export default function MapPanel() {
   const [gdacsAlerts, setGdacsAlerts] = useState<GDACSItem[]>([]);
   const [showUSGS, setShowUSGS] = useState(true);
   const [usgsQuakes, setUsgsQuakes] = useState<EarthquakeFeature[]>([]);
+  const [showTyphoonTrack, setShowTyphoonTrack] = useState(true);
+  const typhoonMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const [activeQuickZoom, setActiveQuickZoom] = useState<string>("PH");
+  const [showQuickZoom, setShowQuickZoom] = useState(true);
   const [mapReady, setMapReady] = useState(false);
   const [hazardLoading, setHazardLoading] = useState<Record<string, boolean>>({});
 
@@ -178,6 +196,7 @@ export default function MapPanel() {
       try {
         const data = await fetchWaterLevels();
         setWaterLevels(data);
+        updateTimestamp("water_levels");
       } catch (err) {
         console.warn("Failed to fetch water levels:", err);
       }
@@ -260,6 +279,7 @@ export default function MapPanel() {
         // Filter to only recent alerts (within ~23 hours)
         const recent = data.filter(d => isDataFresh(d.pubDate, 23));
         setGdacsAlerts(recent);
+        updateTimestamp("gdacs");
       } catch (err) {
         console.warn("Failed to fetch GDACS:", err);
       }
@@ -362,6 +382,7 @@ export default function MapPanel() {
         const data = await fetchEarthquakes();
         if (!mounted) return;
         setUsgsQuakes(data);
+        updateTimestamp("usgs");
       } catch (err) {
         console.warn("Failed to fetch USGS:", err);
       }
@@ -470,6 +491,199 @@ export default function MapPanel() {
       usgsMarkersRef.current.push(marker);
     });
   }, [usgsQuakes, showUSGS, mapReady]);
+
+  // Fetch and render PAGASA typhoon track from cyclone.dat
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+    const map = mapInstance.current;
+
+    // Clear existing typhoon markers
+    typhoonMarkersRef.current.forEach(m => m.remove());
+    typhoonMarkersRef.current = [];
+
+    // Remove existing typhoon track layers/sources
+    ["typhoon-track-line", "typhoon-track-points"].forEach(id => {
+      if (map.getLayer(id)) map.removeLayer(id);
+    });
+    if (map.getSource("typhoon-track")) map.removeSource("typhoon-track");
+    if (map.getSource("typhoon-points")) map.removeSource("typhoon-points");
+
+    if (!showTyphoonTrack) return;
+
+    const loadTyphoon = async () => {
+      try {
+        // Fetch cyclone.dat from PAGASA
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent("https://pubfiles.pagasa.dost.gov.ph/tamss/weather/cyclone.dat")}&_cb=${Date.now()}`;
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
+        if (!res.ok) return;
+        const text = await res.text();
+        if (!text || text.trim().length < 10) return;
+
+        const lines = text.trim().split("\n").filter(l => l.trim());
+        if (lines.length < 2) return;
+
+        // Check if "no tropical cyclone"
+        const firstLine = lines[0].trim();
+        if (firstLine.toLowerCase().includes("no tropical cyclone") || firstLine.toLowerCase().includes("none")) return;
+
+        // Parse storm name
+        const nameMatch = firstLine.match(/^([A-Z]+)\{([A-Z]+)\}/i);
+        const stormName = nameMatch ? `${nameMatch[1]} (${nameMatch[2]})` : firstLine.split(/\s+/)[0];
+
+        // Parse track points: TYPE,YYYY-MM-DD,HH:MM,lat,lon,...
+        const trackPoints: { type: string; date: string; time: string; lat: number; lon: number; raw: string }[] = [];
+        const now = Date.now();
+        const maxAge = 72 * 60 * 60 * 1000; // 72 hours
+
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(",");
+          if (parts.length >= 5) {
+            const type = parts[0]?.trim() || "";
+            const dateStr = parts[1]?.trim() || "";
+            const timeStr = parts[2]?.trim() || "";
+            const lat = parseFloat(parts[3]?.trim() || "0");
+            const lon = parseFloat(parts[4]?.trim() || "0");
+
+            if (lat && lon && dateStr) {
+              const dt = new Date(`${dateStr}T${timeStr}:00+08:00`);
+              if (!isNaN(dt.getTime()) && (now - dt.getTime()) <= maxAge) {
+                trackPoints.push({ type, date: dateStr, time: timeStr, lat, lon, raw: lines[i] });
+              }
+            }
+          }
+        }
+
+        if (trackPoints.length === 0) return;
+
+        updateTimestamp("typhoon");
+
+        // Build GeoJSON for track line
+        const lineCoords = trackPoints.map(p => [p.lon, p.lat]);
+        const trackGeoJSON: GeoJSON.FeatureCollection = {
+          type: "FeatureCollection",
+          features: [{
+            type: "Feature",
+            geometry: { type: "LineString", coordinates: lineCoords },
+            properties: { name: stormName },
+          }],
+        };
+
+        // Build GeoJSON for track points
+        const pointsGeoJSON: GeoJSON.FeatureCollection = {
+          type: "FeatureCollection",
+          features: trackPoints.map((p, idx) => ({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+            properties: {
+              type: p.type,
+              date: p.date,
+              time: p.time,
+              isLatest: idx === trackPoints.length - 1,
+            },
+          })),
+        };
+
+        // Add track line
+        map.addSource("typhoon-track", { type: "geojson", data: trackGeoJSON });
+        map.addLayer({
+          id: "typhoon-track-line",
+          type: "line",
+          source: "typhoon-track",
+          paint: {
+            "line-color": "#00BCD4",
+            "line-width": 3,
+            "line-dasharray": [2, 1],
+            "line-opacity": 0.8,
+          },
+        });
+
+        // Add track points
+        map.addSource("typhoon-points", { type: "geojson", data: pointsGeoJSON });
+        map.addLayer({
+          id: "typhoon-track-points",
+          type: "circle",
+          source: "typhoon-points",
+          paint: {
+            "circle-radius": ["case", ["get", "isLatest"], 8, 4],
+            "circle-color": ["case", ["get", "isLatest"], "#CE1126", "#00BCD4"],
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+            "circle-opacity": 0.9,
+          },
+        });
+
+        // Add popup on click for track points
+        map.on("click", "typhoon-track-points", (e) => {
+          if (!e.features || e.features.length === 0) return;
+          const f = e.features[0];
+          const coords = (f.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
+          const isLatest = f.properties?.isLatest;
+          const date = f.properties?.date || "";
+          const time = f.properties?.time || "";
+          const type = f.properties?.type || "";
+
+          new maplibregl.Popup({ className: "noah-popup", maxWidth: "260px" })
+            .setLngLat(coords)
+            .setHTML(`
+              <div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.4;color:#1f2937;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                  <div style="background:#00BCD4;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke="white" stroke-width="1.5" fill="none"/><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke="white" stroke-width="1.5" fill="none"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-weight:700;font-size:14px;">${escapeHtml(stormName)}</div>
+                    <div style="font-size:10px;color:#6B7280;">${isLatest ? "Current Position" : "Track Point"}</div>
+                  </div>
+                </div>
+                <div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:8px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="color:#6B7280;">Type</span>
+                    <span style="font-weight:600;">${escapeHtml(type || "N/A")}</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="color:#6B7280;">Date/Time</span>
+                    <span style="font-weight:600;">${escapeHtml(date)} ${escapeHtml(time)} PHT</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;">
+                    <span style="color:#6B7280;">Coordinates</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${coords[1].toFixed(2)}, ${coords[0].toFixed(2)}</span>
+                  </div>
+                </div>
+                <div style="font-size:9px;color:#6B7280;margin-top:4px;">Source: PAGASA Tropical Cyclone Bulletin</div>
+              </div>
+            `)
+            .addTo(map);
+        });
+
+        map.on("mouseenter", "typhoon-track-points", () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", "typhoon-track-points", () => { map.getCanvas().style.cursor = ""; });
+
+        // Add a large pulsing marker for the latest position
+        const latest = trackPoints[trackPoints.length - 1];
+        const el = document.createElement("div");
+        el.style.cursor = "pointer";
+        el.innerHTML = `<div style="position:relative;width:40px;height:40px;">
+          <div style="position:absolute;inset:-6px;border-radius:50%;background:#00BCD4;opacity:0.2;animation:gdacsPulse 2s ease-in-out infinite;"></div>
+          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#00BCD4,#0097A7);border:3px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(0,188,212,0.4);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke="white" stroke-width="1.5" fill="none"/><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke="white" stroke-width="1.5" fill="none"/></svg>
+          </div>
+          <div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);white-space:nowrap;background:#00BCD4;color:white;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;font-family:Inter,sans-serif;box-shadow:0 2px 4px rgba(0,0,0,0.2);">${escapeHtml(stormName)}</div>
+        </div>`;
+
+        const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([latest.lon, latest.lat])
+          .addTo(map);
+        typhoonMarkersRef.current.push(marker);
+
+      } catch (err) {
+        console.warn("Failed to fetch typhoon track:", err);
+      }
+    };
+
+    loadTyphoon();
+    const interval = setInterval(loadTyphoon, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [showTyphoonTrack, mapReady]);
 
   // Add NOAH hazard layer
   const addHazardLayer = useCallback(async (hazardType: string, propKey: string, url: string) => {
@@ -899,6 +1113,19 @@ export default function MapPanel() {
   const toggleEvacCenters = useCallback(() => setShowEvacCenters((v) => !v), []);
   const toggleGDACS = useCallback(() => setShowGDACS((v) => !v), []);
   const toggleUSGS = useCallback(() => setShowUSGS((v) => !v), []);
+  const toggleTyphoonTrack = useCallback(() => setShowTyphoonTrack((v) => !v), []);
+
+  // Quick Zoom handler
+  const flyToPreset = useCallback((preset: typeof QUICK_ZOOM_PRESETS[0]) => {
+    if (!mapInstance.current) return;
+    mapInstance.current.flyTo({
+      center: [preset.lon, preset.lat],
+      zoom: preset.zoom,
+      duration: 1500,
+      essential: true,
+    });
+    setActiveQuickZoom(preset.label);
+  }, []);
 
   const btnClass = (active: boolean) =>
     `flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[8px] sm:text-[9px] font-semibold tracking-wider transition-all border ${
@@ -1018,15 +1245,42 @@ export default function MapPanel() {
         </div>
       </div>
 
+      {/* Quick Zoom Presets */}
+      <div className={`absolute ${displayAlerts.length > 0 ? "top-10" : "top-2"} right-24 z-[1001] transition-all`}>
+        <div className={`flex items-center gap-0.5 backdrop-blur-md rounded-lg shadow-lg border p-0.5 ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.92)] border-[oklch(0.25_0.02_260)]' : 'bg-white/92 border-gray-200'}`}>
+          {QUICK_ZOOM_PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              onClick={() => flyToPreset(preset)}
+              className={`px-1.5 sm:px-2 py-1 rounded text-[8px] sm:text-[9px] font-bold tracking-wider transition-all ${
+                activeQuickZoom === preset.label
+                  ? isDark
+                    ? "bg-[#0038A8] text-white shadow-sm"
+                    : "bg-[#0038A8] text-white shadow-sm"
+                  : isDark
+                    ? "text-gray-400 hover:text-white hover:bg-white/10"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+              title={preset.name}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Layer toggle controls */}
       <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} left-1 sm:left-2 z-[1000] flex flex-col gap-1 sm:gap-1.5 transition-all`}>
-        {/* Row 1: GDACS + Water Levels + NOAH Hazard overlays */}
+        {/* Row 1: GDACS + USGS + Typhoon + Water Levels + NOAH Hazard overlays */}
         <div className="flex gap-1 flex-wrap">
           <button onClick={toggleGDACS} className={btnClass(showGDACS)} style={showGDACS ? { color: "#FF4444", borderColor: "#FF4444" } : {}} title="Toggle GDACS Disaster Alerts (last 23h)">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> GDACS{gdacsAlerts.length > 0 ? ` (${gdacsAlerts.length})` : ""}
           </button>
           <button onClick={toggleUSGS} className={btnClass(showUSGS)} style={showUSGS ? { color: "#FF8C00", borderColor: "#FF8C00" } : {}} title="Toggle USGS Earthquake Markers">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l2-2 3 3 4-6 3 4 4-3 4 4"/></svg> USGS{usgsQuakes.length > 0 ? ` (${usgsQuakes.length})` : ""}
+          </button>
+          <button onClick={toggleTyphoonTrack} className={btnClass(showTyphoonTrack)} style={showTyphoonTrack ? { color: "#00BCD4", borderColor: "#00BCD4" } : {}} title="Toggle PAGASA Typhoon Track">
+            <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg> TC
           </button>
           <button onClick={toggleWaterLevels} className={btnClass(showWaterLevels)} style={showWaterLevels ? { color: "#0038A8", borderColor: "#0038A8" } : {}} title="Toggle water level stations">
             <svg className="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> WL
