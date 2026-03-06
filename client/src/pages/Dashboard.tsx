@@ -2,7 +2,7 @@
 // Desktop: react-grid-layout 12-col grid with drag/resize, bounded to viewport (no overflow)
 // Mobile (<768px): Bottom tab navigation with 5 tabs — Home, Map, News, Video, Alerts
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { GridLayout, verticalCompactor } from "react-grid-layout";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -21,19 +21,20 @@ interface PanelConfig {
   icon: string;
   component: React.ComponentType;
   defaultLayout: { x: number; y: number; w: number; h: number; minW?: number; minH?: number };
-  mobileOrder: number;
-  mobileHeight: string;
 }
 
 const PANELS: PanelConfig[] = [
-  { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 7, h: 13, minW: 4, minH: 6 }, mobileOrder: 1, mobileHeight: "h-[55vh]" },
-  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 7, y: 0, w: 2, h: 13, minW: 2, minH: 4 }, mobileOrder: 4, mobileHeight: "h-[300px]" },
-  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 13, minW: 2, minH: 3 }, mobileOrder: 3, mobileHeight: "h-[280px]" },
-  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 2, mobileHeight: "h-[280px]" },
-  { id: "phnews", title: "PH News", icon: "RSS", component: PHNewsPanel, defaultLayout: { x: 0, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 7, mobileHeight: "h-[400px]" },
-  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 3, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 5, mobileHeight: "h-[280px]" },
-  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 6, y: 13, w: 3, h: 12, minW: 2, minH: 3 }, mobileOrder: 6, mobileHeight: "h-[400px]" },
+  { id: "map", title: "Map", icon: "MAP", component: MapPanel, defaultLayout: { x: 0, y: 0, w: 7, h: 13, minW: 4, minH: 6 } },
+  { id: "phivolcs", title: "PhiVolcs", icon: "PV", component: PhiVolcsPanel, defaultLayout: { x: 7, y: 0, w: 2, h: 13, minW: 2, minH: 4 } },
+  { id: "livecams", title: "Volcano Cams", icon: "VCAM", component: LivecamsPanel, defaultLayout: { x: 9, y: 0, w: 3, h: 13, minW: 2, minH: 3 } },
+  { id: "livestream", title: "Livestream", icon: "LIVE", component: LivestreamPanel, defaultLayout: { x: 9, y: 13, w: 3, h: 12, minW: 2, minH: 3 } },
+  { id: "phnews", title: "PH News", icon: "RSS", component: PHNewsPanel, defaultLayout: { x: 0, y: 13, w: 3, h: 12, minW: 2, minH: 3 } },
+  { id: "waterlevel", title: "Water Levels", icon: "WL", component: WaterLevelPanel, defaultLayout: { x: 3, y: 13, w: 3, h: 12, minW: 2, minH: 3 } },
+  { id: "weather", title: "Weather & AQ", icon: "WX", component: WeatherAirQualityPanel, defaultLayout: { x: 6, y: 13, w: 3, h: 12, minW: 2, minH: 3 } },
 ];
+
+// Nav bar height constant — used for both the bar itself and content padding
+const MOBILE_NAV_HEIGHT = 64;
 
 // Mobile tab definitions
 type MobileTab = "home" | "map" | "news" | "video" | "alerts";
@@ -164,78 +165,64 @@ function useMaxRows(headerHeight: number, rowHeight: number, margin: number) {
   return maxRows;
 }
 
-// Mobile tab content renderer
+// Mobile tab content — each tab is always mounted, visibility toggled via CSS display
+// This prevents panels from remounting/re-fetching when switching tabs
 function MobileTabContent({ activeTab }: { activeTab: MobileTab }) {
-  switch (activeTab) {
-    case "home":
-      return (
-        <div className="flex-1 overflow-auto p-2 space-y-2 pb-2" style={{ WebkitOverflowScrolling: "touch" }}>
-          <div className="h-[55vh] overflow-hidden rounded-lg">
-            <MapPanel />
-          </div>
-          <div className="h-[300px] overflow-hidden rounded-lg">
-            <PhiVolcsPanel />
-          </div>
-          <div className="h-[280px] overflow-hidden rounded-lg">
-            <LivestreamPanel />
-          </div>
-          <div className="h-[280px] overflow-hidden rounded-lg">
-            <LivecamsPanel />
-          </div>
-          <div className="h-[280px] overflow-hidden rounded-lg">
-            <WaterLevelPanel />
-          </div>
-          <div className="h-[400px] overflow-hidden rounded-lg">
-            <WeatherAirQualityPanel />
-          </div>
-          <div className="h-[400px] overflow-hidden rounded-lg">
-            <PHNewsPanel />
-          </div>
-          <div className="h-4" />
-        </div>
-      );
-    case "map":
-      return (
-        <div className="flex-1 overflow-hidden">
-          <MapPanel />
-        </div>
-      );
-    case "news":
-      return (
-        <div className="flex-1 overflow-hidden">
-          <PHNewsPanel />
-        </div>
-      );
-    case "video":
-      return (
-        <div className="flex-1 overflow-auto p-2 space-y-2 pb-2" style={{ WebkitOverflowScrolling: "touch" }}>
-          <div className="h-[50vh] overflow-hidden rounded-lg">
-            <LivestreamPanel />
-          </div>
-          <div className="h-[50vh] overflow-hidden rounded-lg">
-            <LivecamsPanel />
-          </div>
-          <div className="h-4" />
-        </div>
-      );
-    case "alerts":
-      return (
-        <div className="flex-1 overflow-auto p-2 space-y-2 pb-2" style={{ WebkitOverflowScrolling: "touch" }}>
-          <div className="h-[400px] overflow-hidden rounded-lg">
-            <PhiVolcsPanel />
-          </div>
-          <div className="h-[300px] overflow-hidden rounded-lg">
-            <WaterLevelPanel />
-          </div>
-          <div className="h-[400px] overflow-hidden rounded-lg">
-            <WeatherAirQualityPanel />
-          </div>
-          <div className="h-4" />
-        </div>
-      );
-    default:
-      return null;
-  }
+  return (
+    <>
+      {/* Home tab — all panels stacked */}
+      <div
+        className="flex-1 overflow-auto p-2 space-y-2 flex flex-col"
+        style={{ display: activeTab === "home" ? "flex" : "none" }}
+      >
+        <div className="h-[55vh] overflow-hidden rounded-lg shrink-0"><MapPanel /></div>
+        <div className="h-[300px] overflow-hidden rounded-lg shrink-0"><PhiVolcsPanel /></div>
+        <div className="h-[280px] overflow-hidden rounded-lg shrink-0"><LivestreamPanel /></div>
+        <div className="h-[280px] overflow-hidden rounded-lg shrink-0"><LivecamsPanel /></div>
+        <div className="h-[280px] overflow-hidden rounded-lg shrink-0"><WaterLevelPanel /></div>
+        <div className="h-[400px] overflow-hidden rounded-lg shrink-0"><WeatherAirQualityPanel /></div>
+        <div className="h-[400px] overflow-hidden rounded-lg shrink-0"><PHNewsPanel /></div>
+        <div className="h-4 shrink-0" />
+      </div>
+
+      {/* Map tab — full screen */}
+      <div
+        className="flex-1 overflow-hidden"
+        style={{ display: activeTab === "map" ? "flex" : "none" }}
+      >
+        <MapPanel />
+      </div>
+
+      {/* News tab — full screen */}
+      <div
+        className="flex-1 overflow-hidden"
+        style={{ display: activeTab === "news" ? "flex" : "none" }}
+      >
+        <PHNewsPanel />
+      </div>
+
+      {/* Video tab — livestream + volcano cams */}
+      <div
+        className="flex-1 overflow-auto p-2 space-y-2 flex flex-col"
+        style={{ display: activeTab === "video" ? "flex" : "none" }}
+      >
+        <div className="h-[50vh] overflow-hidden rounded-lg shrink-0"><LivestreamPanel /></div>
+        <div className="h-[50vh] overflow-hidden rounded-lg shrink-0"><LivecamsPanel /></div>
+        <div className="h-4 shrink-0" />
+      </div>
+
+      {/* Alerts tab — phivolcs + water levels + weather */}
+      <div
+        className="flex-1 overflow-auto p-2 space-y-2 flex flex-col"
+        style={{ display: activeTab === "alerts" ? "flex" : "none" }}
+      >
+        <div className="h-[400px] overflow-hidden rounded-lg shrink-0"><PhiVolcsPanel /></div>
+        <div className="h-[300px] overflow-hidden rounded-lg shrink-0"><WaterLevelPanel /></div>
+        <div className="h-[400px] overflow-hidden rounded-lg shrink-0"><WeatherAirQualityPanel /></div>
+        <div className="h-4 shrink-0" />
+      </div>
+    </>
+  );
 }
 
 export default function Dashboard() {
@@ -497,7 +484,7 @@ export default function Dashboard() {
             role="main"
             aria-label="Dashboard panels"
             className="flex-1 flex flex-col overflow-hidden"
-            style={{ paddingBottom: "64px" }}
+            style={{ paddingBottom: `${MOBILE_NAV_HEIGHT}px` }}
           >
             <MobileTabContent activeTab={activeTab} />
           </main>
@@ -508,7 +495,7 @@ export default function Dashboard() {
             aria-label="Mobile navigation"
             className="fixed bottom-0 left-0 right-0 z-[9999] mobile-bottom-nav"
             style={{
-              height: "64px",
+              height: `${MOBILE_NAV_HEIGHT}px`,
               paddingBottom: "env(safe-area-inset-bottom, 0px)",
             }}
           >
@@ -536,7 +523,7 @@ export default function Dashboard() {
             />
 
             {/* Tab buttons */}
-            <div className="relative flex items-center justify-around h-[64px] px-2">
+            <div className={`relative flex items-center justify-around px-2`} style={{ height: `${MOBILE_NAV_HEIGHT}px` }}>
               {MOBILE_TABS.map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
@@ -557,10 +544,9 @@ export default function Dashboard() {
                       {tab.icon(isActive)}
                     </div>
                     <span
-                      className={`text-[10px] leading-tight ${
+                      className={`text-[10px] leading-tight font-display ${
                         isActive ? "font-semibold" : "font-medium"
                       }`}
-                      style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
                     >
                       {tab.label}
                     </span>
