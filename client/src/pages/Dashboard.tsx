@@ -228,9 +228,6 @@ function MobileTabContent({ activeTab }: { activeTab: MobileTab }) {
 export default function Dashboard() {
   const { theme, toggleTheme } = useTheme();
   const [time, setTime] = useState(new Date());
-  const [visiblePanels] = useState<Set<string>>(
-    new Set(PANELS.map((p) => p.id))
-  );
   const [layout, setLayout] = useState(getDefaultLayout());
   const [containerWidth, setContainerWidth] = useState(window.innerWidth - 16);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -338,7 +335,6 @@ export default function Dashboard() {
     year: "numeric",
   });
 
-  const filteredLayout = layout.filter((l: any) => visiblePanels.has(l.i));
   const isDark = theme === "dark";
 
   return (
@@ -497,6 +493,7 @@ export default function Dashboard() {
             style={{
               height: `${MOBILE_NAV_HEIGHT}px`,
               paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              willChange: "transform",
             }}
           >
             {/* Frosted glass background */}
@@ -560,7 +557,7 @@ export default function Dashboard() {
         <main ref={mainRef} role="main" aria-label="Dashboard panels" className="flex-1 overflow-hidden p-1.5">
           <GridLayout
             className="layout"
-            layout={filteredLayout as any}
+            layout={layout as any}
             width={containerWidth}
             gridConfig={{
               cols: 12,
@@ -581,7 +578,7 @@ export default function Dashboard() {
             onLayoutChange={onLayoutChange as any}
             autoSize={false}
           >
-            {PANELS.filter((p) => visiblePanels.has(p.id)).map((panel) => {
+            {PANELS.map((panel) => {
               const Component = panel.component;
               return (
                 <div key={panel.id} className="overflow-hidden">
