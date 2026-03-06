@@ -1268,25 +1268,11 @@ export default function MapPanel() {
         </div>
       </div>
 
-      {/* Collapsible LAYERS panel */}
-      <div className={`absolute ${displayAlerts.length > 0 ? "top-20" : "top-12"} left-1 sm:left-2 z-[1000] transition-all`}>
-        {/* LAYERS header button */}
-        <button
-          onClick={() => setLayersPanelOpen(v => !v)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-[0.15em] uppercase transition-all backdrop-blur-md shadow-lg border ${
-            isDark
-              ? 'bg-[oklch(0.10_0.015_260_/_0.95)] border-[oklch(0.25_0.02_260)] text-gray-300 hover:bg-[oklch(0.14_0.02_260)]'
-              : 'bg-white/95 border-gray-200 text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/></svg>
-          LAYERS
-          <svg className={`w-3 h-3 transition-transform ${layersPanelOpen ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-
-        {/* Dropdown panel */}
+      {/* Collapsible LAYERS panel — bottom-left, opens upward */}
+      <div className="absolute bottom-2 left-1 sm:left-2 z-[1000] flex flex-col items-start">
+        {/* Dropdown panel — opens upward above the button */}
         {layersPanelOpen && (
-          <div className={`mt-1 rounded-lg backdrop-blur-md shadow-xl border overflow-hidden w-52 ${
+          <div className={`mb-1 rounded-lg backdrop-blur-md shadow-xl border overflow-hidden w-52 ${
             isDark
               ? 'bg-[oklch(0.08_0.015_260_/_0.96)] border-[oklch(0.22_0.02_260)]'
               : 'bg-white/96 border-gray-200'
@@ -1344,143 +1330,20 @@ export default function MapPanel() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Legend overlay */}
-      <div className={`absolute bottom-2 left-2 z-[1000] backdrop-blur-md rounded-lg px-2 sm:px-2.5 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-mono max-h-[40vh] sm:max-h-[60vh] overflow-y-auto max-w-[45vw] sm:max-w-none border ${isDark ? 'bg-[oklch(0.10_0.015_260_/_0.92)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'bg-white/92 border-gray-200/60'}`}>
-        {/* GDACS Alerts Legend */}
-        {showGDACS && gdacsAlerts.length > 0 && (
-          <>
-            <div className={`mb-1 font-semibold text-[9px] tracking-wider ${isDark ? 'text-[oklch(0.55_0.01_260)]' : 'text-gray-500'}`}>GDACS ALERTS</div>
-            {[
-              { color: "#CE1126", label: "Red (High)" },
-              { color: "#FF6B35", label: "Orange (Medium)" },
-              { color: "#22C55E", label: "Green (Low)" },
-            ].map((item) => (
-              <div key={`gdacs-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ background: item.color }} />
-                <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
-              </div>
-            ))}
-            <div className={`text-[8px] mb-1 ${isDark ? 'text-[oklch(0.50_0.01_260)]' : 'text-gray-400'}`}>Last 23h only</div>
-          </>
-        )}
-
-        {/* USGS Earthquakes Legend */}
-        {showUSGS && usgsQuakes.length > 0 && (
-          <>
-            <div className={`mb-1 font-semibold text-[9px] tracking-wider ${isDark ? 'text-[oklch(0.55_0.01_260)]' : 'text-gray-500'}`}>USGS EARTHQUAKES</div>
-            {[
-              { color: "#CE1126", label: "M6+ Major" },
-              { color: "#FF6B35", label: "M5-6 Strong" },
-              { color: "#FCD116", label: "M4-5 Moderate" },
-              { color: "#41B6E6", label: "M3-4 Light" },
-              { color: "#22C55E", label: "< M3 Minor" },
-            ].map((item) => (
-              <div key={`usgs-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ background: item.color }} />
-                <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
-              </div>
-            ))}
-            <div className={`text-[8px] mb-1 ${isDark ? 'text-[oklch(0.50_0.01_260)]' : 'text-gray-400'}`}>PH region, last 30</div>
-          </>
-        )}
-
-        {/* NOAH Hazards Legend */}
-        {(showFlood || showLandslide || showStormSurge) && (
-          <>
-            <div className={`mb-1 font-semibold text-[9px] tracking-wider ${isDark ? 'text-[oklch(0.55_0.01_260)]' : 'text-gray-500'}`}>NOAH HAZARDS</div>
-            {showFlood && (
-              <div className="mb-1">
-                <div className="text-[8px] text-[#41B6E6] font-semibold mb-0.5">Flood</div>
-                {[{ color: "rgba(65, 182, 230, 0.6)", label: "Low" }, { color: "rgba(30, 120, 220, 0.7)", label: "Medium" }, { color: "rgba(10, 50, 168, 0.8)", label: "High" }].map((item) => (
-                  <div key={`flood-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
-                    <span className="w-3 h-2 rounded-sm" style={{ background: item.color }} />
-                    <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {showLandslide && (
-              <div className="mb-1">
-                <div className="text-[8px] text-[#F2994A] font-semibold mb-0.5">Landslide</div>
-                {[{ color: "rgba(252, 209, 22, 0.6)", label: "Low" }, { color: "rgba(242, 153, 74, 0.7)", label: "Medium" }, { color: "rgba(206, 17, 38, 0.8)", label: "High" }].map((item) => (
-                  <div key={`slide-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
-                    <span className="w-3 h-2 rounded-sm" style={{ background: item.color }} />
-                    <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {showStormSurge && (
-              <div className="mb-1">
-                <div className="text-[8px] text-[#B482FF] font-semibold mb-0.5">Storm Surge</div>
-                {[{ color: "rgba(180, 130, 255, 0.5)", label: "Low" }, { color: "rgba(220, 80, 180, 0.6)", label: "Medium" }, { color: "rgba(206, 17, 38, 0.7)", label: "High" }].map((item) => (
-                  <div key={`surge-${item.label}`} className="flex items-center gap-1.5 mb-0.5">
-                    <span className="w-3 h-2 rounded-sm" style={{ background: item.color }} />
-                    <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Volcano Legend */}
-        {showVolcano && (
-          <>
-            <div className={`mb-1 mt-1.5 font-semibold text-[9px] tracking-wider pt-1.5 border-t ${isDark ? 'text-[oklch(0.55_0.01_260)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'text-gray-500 border-gray-200'}`}>VOLCANO ZONES</div>
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="w-3 h-2 rounded-sm" style={{ background: "rgba(206, 17, 38, 0.5)" }} />
-              <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>PDZ (Permanent)</span>
-            </div>
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="w-3 h-2 rounded-sm border border-dashed border-orange-400" style={{ background: "rgba(255, 140, 0, 0.3)" }} />
-              <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>EDZ (Extended)</span>
-            </div>
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#CE1126] border border-white" />
-              <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>Summit</span>
-            </div>
-          </>
-        )}
-
-        <div className={`mb-1 font-semibold text-[9px] tracking-wider pt-1.5 border-t ${isDark ? 'text-[oklch(0.55_0.01_260)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'text-gray-500 border-gray-200'}`}>FACILITIES</div>
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#00D4FF]" />
-          <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>Hospitals</span>
-        </div>
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#FCD116]" />
-          <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>Schools</span>
-        </div>
-
-        {/* Evacuation Centers Legend */}
-        {showEvacCenters && (
-          <>
-            <div className={`mb-1 mt-1.5 font-semibold text-[9px] tracking-wider pt-1.5 border-t ${isDark ? 'text-[oklch(0.55_0.01_260)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'text-gray-500 border-gray-200'}`}>EVACUATION CENTERS</div>
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#4CAF50]" />
-              <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>Shelter / Evac Center</span>
-            </div>
-            <div className={`text-[8px] ${isDark ? 'text-[oklch(0.50_0.01_260)]' : 'text-gray-400'}`}>Source: OSM / DSWD (6,424)</div>
-          </>
-        )}
-
-        <div className={`mb-1 font-semibold text-[9px] tracking-wider pt-1.5 border-t ${isDark ? 'text-[oklch(0.55_0.01_260)] border-[oklch(0.25_0.02_260_/_0.5)]' : 'text-gray-500 border-gray-200'}`}>WATER LEVELS</div>
-        {[
-          { color: "#0038A8", label: "Normal" },
-          { color: "#FCD116", label: "Alert" },
-          { color: "#FF6B35", label: "Alarm" },
-          { color: "#CE1126", label: "Critical" },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center gap-1.5 mb-0.5">
-            <svg className="w-3 h-3.5 shrink-0" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M14 0C14 0 0 14 0 22C0 28.627 6.268 34 14 34C21.732 34 28 28.627 28 22C28 14 14 0 14 0Z" fill={item.color}/>
-            </svg>
-            <span className={isDark ? 'text-[oklch(0.70_0.005_260)]' : 'text-gray-600'}>{item.label}</span>
-          </div>
-        ))}
+        {/* LAYERS header button */}
+        <button
+          onClick={() => setLayersPanelOpen(v => !v)}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-[0.15em] uppercase transition-all backdrop-blur-md shadow-lg border ${
+            isDark
+              ? 'bg-[oklch(0.10_0.015_260_/_0.95)] border-[oklch(0.25_0.02_260)] text-gray-300 hover:bg-[oklch(0.14_0.02_260)]'
+              : 'bg-white/95 border-gray-200 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/></svg>
+          LAYERS
+          <svg className={`w-3 h-3 transition-transform ${layersPanelOpen ? '' : 'rotate-180'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
       </div>
 
 
