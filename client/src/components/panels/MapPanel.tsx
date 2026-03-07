@@ -1155,14 +1155,14 @@ export default function MapPanel() {
         </div>
       </div>
 
-      {/* Quick Zoom Presets — right-aligned, responsive */}
-      <div className={`absolute ${displayAlerts.length > 0 ? "top-20 sm:top-10" : "top-10 sm:top-2"} right-2 z-[1001] transition-all max-w-[calc(100%-16px)] sm:max-w-none`}>
-        <div className={`flex items-center gap-0.5 backdrop-blur-md rounded-lg shadow-lg border p-0.5 overflow-x-auto scrollbar-none max-w-full ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.92)] border-[oklch(0.25_0.02_260)]' : 'bg-white/92 border-gray-200'}`}>
+      {/* Quick Zoom Presets — right-aligned, 4x2 grid layout */}
+      <div className={`absolute ${displayAlerts.length > 0 ? "top-20 sm:top-10" : "top-10 sm:top-2"} right-2 z-[1001] transition-all`}>
+        <div className={`grid grid-cols-4 gap-0.5 backdrop-blur-md rounded-lg shadow-lg border p-0.5 ${isDark ? 'bg-[oklch(0.12_0.015_260_/_0.92)] border-[oklch(0.25_0.02_260)]' : 'bg-white/92 border-gray-200'}`}>
           {QUICK_ZOOM_PRESETS.map((preset) => (
             <button
               key={preset.label}
               onClick={() => flyToPreset(preset)}
-              className={`px-2 py-1 rounded text-[9px] font-bold tracking-wide transition-all whitespace-nowrap ${
+              className={`px-1.5 sm:px-2 py-1 rounded text-[8px] sm:text-[9px] font-bold tracking-wide transition-all whitespace-nowrap text-center ${
                 activeQuickZoom === preset.label
                   ? "bg-[#0038A8] text-white shadow-sm"
                   : isDark
