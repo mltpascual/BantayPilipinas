@@ -217,7 +217,7 @@ export default function PAGASABulletinBanner() {
   
   if (alerts.length === 0) {
     return (
-      <div className={`shrink-0 border-b px-2 sm:px-3 py-1 flex items-center gap-1.5 sm:gap-2.5 transition-colors ${
+      <div data-pagasa-banner className={`shrink-0 border-b px-2 sm:px-3 py-1 flex items-center gap-1.5 sm:gap-2.5 transition-colors ${
         isDark 
           ? "bg-[oklch(0.14_0.01_160)] border-[oklch(0.22_0.03_160)] text-[oklch(0.55_0.04_160)]" 
           : "bg-[oklch(0.97_0.005_160)] border-[oklch(0.90_0.02_160)] text-[oklch(0.50_0.04_160)]"
@@ -273,7 +273,7 @@ export default function PAGASABulletinBanner() {
   }).join("     ///     ");
 
   return (
-    <div className={`shrink-0 border-b px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 sm:gap-3 transition-colors ${colorClass}`}>
+    <div data-pagasa-banner className={`shrink-0 border-b px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 sm:gap-3 transition-colors ${colorClass}`}>
       {/* Severity dot */}
       <div className="flex items-center gap-2 shrink-0">
         <div className={`w-2 h-2 rounded-full ${colors.dot} animate-pulse`} />

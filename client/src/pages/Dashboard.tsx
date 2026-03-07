@@ -149,20 +149,33 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
-// Calculate maxRows based on available height so panels can't go past the viewport
-function useMaxRows(headerHeight: number, rowHeight: number, margin: number) {
-  const [maxRows, setMaxRows] = useState(19);
+// Calculate dynamic rowHeight so the grid always fits within the viewport
+// The grid has 25 rows total (top row: y=0, h=13; bottom row: y=13, h=12 → max extent = 25)
+function useDynamicRowHeight(headerHeight: number, margin: number, totalRows: number) {
+  const [rowHeight, setRowHeight] = useState(30);
   useEffect(() => {
     const calc = () => {
-      const availableHeight = window.innerHeight - headerHeight - 12; // 12px for padding
-      const rows = Math.floor((availableHeight + margin) / (rowHeight + margin));
-      setMaxRows(rows);
+      // Available height = viewport - header - body padding (1.5*2=3px top+bottom via p-1.5) - PAGASA banner (if visible, ~32px but dynamic)
+      const bannerEl = document.querySelector('[data-pagasa-banner]');
+      const bannerHeight = bannerEl ? bannerEl.getBoundingClientRect().height : 0;
+      const availableHeight = window.innerHeight - headerHeight - bannerHeight - 3; // 3px for p-1.5 padding
+      // rowHeight = (availableHeight - totalGaps) / totalRows
+      // totalGaps = (totalRows - 1) * margin + containerPadding (0)
+      const totalGaps = (totalRows) * margin; // margin between rows + one extra for safety
+      const rh = Math.floor((availableHeight - totalGaps) / totalRows);
+      setRowHeight(Math.max(rh, 15)); // minimum 15px per row
     };
     calc();
     window.addEventListener("resize", calc);
-    return () => window.removeEventListener("resize", calc);
-  }, [headerHeight, rowHeight, margin]);
-  return maxRows;
+    // Also recalc when banner appears/disappears
+    const observer = new MutationObserver(calc);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      window.removeEventListener("resize", calc);
+      observer.disconnect();
+    };
+  }, [headerHeight, margin, totalRows]);
+  return rowHeight;
 }
 
 // Mobile tab content — each tab is always mounted, visibility toggled via CSS display
@@ -232,7 +245,9 @@ export default function Dashboard() {
   const [containerWidth, setContainerWidth] = useState(window.innerWidth - 16);
   const mainRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
-  const maxRows = useMaxRows(48, 42, 6); // header ~48px, rowHeight 42, margin 6
+  // Calculate the max row extent from the current layout
+  const maxRowExtent = layout.reduce((max: number, item: any) => Math.max(max, (item.y || 0) + (item.h || 0)), 0) || 25;
+  const dynamicRowHeight = useDynamicRowHeight(48, 6, maxRowExtent); // header ~48px, margin 6
   const [activeTab, setActiveTab] = useState<MobileTab>("home");
 
   useEffect(() => {
@@ -561,10 +576,10 @@ export default function Dashboard() {
             width={containerWidth}
             gridConfig={{
               cols: 12,
-              rowHeight: 42,
+              rowHeight: dynamicRowHeight,
               margin: [6, 6] as [number, number],
               containerPadding: [0, 0] as [number, number],
-              maxRows: maxRows,
+              maxRows: maxRowExtent,
             }}
             dragConfig={{
               enabled: true,
