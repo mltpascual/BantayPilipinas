@@ -12,7 +12,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.allorigins.win https://api.rss2json.com https://earthquake.usgs.gov https://api.open-meteo.com https://air-quality-api.open-meteo.com https://basemaps.cartocdn.com https://upri-noah.s3.ap-southeast-1.amazonaws.com https://d2xsxph8kpxj0f.cloudfront.net https://www.gdacs.org https://pubfiles.pagasa.dost.gov.ph https://img.youtube.com https://forge.butterfly-effect.dev; frame-src https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' https:; worker-src 'self' blob:;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.allorigins.win https://api.rss2json.com https://earthquake.usgs.gov https://api.open-meteo.com https://air-quality-api.open-meteo.com https://*.basemaps.cartocdn.com https://basemaps.cartocdn.com https://upri-noah.s3.ap-southeast-1.amazonaws.com https://d2xsxph8kpxj0f.cloudfront.net https://www.gdacs.org https://pubfiles.pagasa.dost.gov.ph https://img.youtube.com https://forge.butterfly-effect.dev; frame-src https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' https:; worker-src 'self' blob:;"
         },
         {
           "key": "X-Frame-Options",
