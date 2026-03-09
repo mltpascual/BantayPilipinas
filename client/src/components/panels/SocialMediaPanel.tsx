@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from "react";
 import PanelWrapper from "@/components/PanelWrapper";
 import { useFreshness } from "@/contexts/FreshnessContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { logger } from "@/lib/logger";
 
 interface SocialPost {
   id: string;
@@ -82,9 +83,9 @@ function isTodayPH(dateStr: string): boolean {
 }
 
 function stripHTML(html: string): string {
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return div.textContent || div.innerText || "";
+  // Security fix: Use DOMParser instead of innerHTML to prevent XSS
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return doc.body.textContent || "";
 }
 
 export default function SocialMediaPanel() {
@@ -168,7 +169,7 @@ export default function SocialMediaPanel() {
       setPosts(sorted);
       updateTimestamp("social_media");
     } catch (err) {
-      console.warn("Failed to fetch social posts:", err);
+      logger.warn("Failed to fetch social posts:", err);
     } finally {
       setLoading(false);
     }

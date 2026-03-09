@@ -18,6 +18,7 @@ import {
 import { isDataFresh } from "@/lib/fetchUtils";
 import { searchProvinces, type Province } from "@/lib/provinces";
 import { useTheme } from "@/contexts/ThemeContext";
+import { logger } from "@/lib/logger";
 import { useFreshness, FreshnessIndicator } from "@/contexts/FreshnessContext";
 
 // Basemap styles
@@ -177,7 +178,7 @@ export default function MapPanel() {
         setWaterLevels(data);
         updateTimestamp("water_levels");
       } catch (err) {
-        console.warn("Failed to fetch water levels:", err);
+        logger.warn("Failed to fetch water levels:", err);
       }
     };
     loadWL();
@@ -260,7 +261,7 @@ export default function MapPanel() {
         setGdacsAlerts(recent);
         updateTimestamp("gdacs");
       } catch (err) {
-        console.warn("Failed to fetch GDACS:", err);
+        logger.warn("Failed to fetch GDACS:", err);
       }
     };
     loadGDACS();
@@ -363,7 +364,7 @@ export default function MapPanel() {
         setUsgsQuakes(data);
         updateTimestamp("usgs");
       } catch (err) {
-        console.warn("Failed to fetch USGS:", err);
+        logger.warn("Failed to fetch USGS:", err);
       }
     };
     loadUSGS();
@@ -655,7 +656,7 @@ export default function MapPanel() {
         typhoonMarkersRef.current.push(marker);
 
       } catch (err) {
-        console.warn("Failed to fetch typhoon track:", err);
+        logger.warn("Failed to fetch typhoon track:", err);
       }
     };
 
@@ -744,7 +745,7 @@ export default function MapPanel() {
       map.on("mouseenter", fillId, () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", fillId, () => { map.getCanvas().style.cursor = ""; });
     } catch (err) {
-      console.warn(`Failed to load ${hazardType} hazard data:`, err);
+      logger.warn(`Failed to load ${hazardType} hazard data:`, err);
     } finally {
       setHazardLoading(prev => ({ ...prev, [hazardType]: false }));
     }

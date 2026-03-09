@@ -5,7 +5,11 @@ export const getLoginUrl = () => {
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
-  const state = btoa(redirectUri);
+  // Security fix: Use cryptographically random state to prevent CSRF in OAuth flow
+  const state = crypto.randomUUID();
+  // Store state + redirect URI for verification on callback
+  sessionStorage.setItem("oauth_state", state);
+  sessionStorage.setItem("oauth_redirect", redirectUri);
 
   const url = new URL(`${oauthPortalUrl}/app-auth`);
   url.searchParams.set("appId", appId);

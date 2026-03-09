@@ -4,6 +4,7 @@
 // Cache-busting and date validation via shared fetchUtils
 
 import { cacheBustUrl, isDataFresh } from "./fetchUtils";
+import { logger } from "./logger";
 
 export interface FeedItem {
   title: string;
@@ -66,9 +67,9 @@ function proxyJsonUrl(targetUrl: string): string {
 }
 
 function decodeHTMLEntities(text: string): string {
-  const textarea = document.createElement("textarea");
-  textarea.innerHTML = text;
-  return textarea.value;
+  // Security fix: Use DOMParser instead of innerHTML to prevent XSS
+  const doc = new DOMParser().parseFromString(text, "text/html");
+  return doc.body.textContent || "";
 }
 
 function stripHTML(html: string): string {
@@ -128,7 +129,7 @@ export async function fetchRSSFeed(url: string, source: string): Promise<FeedIte
     try {
       return await fetchViaAllOrigins(url, source);
     } catch (err) {
-      console.warn(`Failed to fetch RSS from ${source}:`, err);
+      logger.warn(`Failed to fetch RSS from ${source}:`, err);
       return [];
     }
   }
@@ -197,7 +198,7 @@ export async function fetchEarthquakes(): Promise<EarthquakeFeature[]> {
     const data = await response.json();
     return data.features || [];
   } catch (err) {
-    console.warn("Failed to fetch earthquakes:", err);
+    logger.warn("Failed to fetch earthquakes:", err);
     return [];
   }
 }
@@ -243,7 +244,7 @@ export async function fetchWeather(): Promise<WeatherData[]> {
       }];
     }
   } catch (err) {
-    console.warn("Failed to fetch weather:", err);
+    logger.warn("Failed to fetch weather:", err);
     return [];
   }
 }
@@ -418,7 +419,7 @@ export async function fetchGDACS(): Promise<GDACSItem[]> {
     const rawText = await tryAllOrigins();
     return parseGDACSXml(rawText).slice(0, 15);
   } catch (err) {
-    console.warn("Failed to fetch GDACS:", err);
+    logger.warn("Failed to fetch GDACS:", err);
     return [];
   }
 }
@@ -509,22 +510,43 @@ export async function fetchWaterLevels(): Promise<WaterLevelStation[]> {
 
     if (!Array.isArray(data)) return [];
 
-    return data.map((station: any) => {
+    // Security fix: Validate and sanitize PAGASA data from HTTP endpoint
+    // (data passes through CORS proxy — integrity cannot be guaranteed)
+    return data
+      .filter((station: any) => {
+        // Reject entries with missing critical fields
+        if (!station.obscd || !station.obsnm) return false;
+        // Validate coordinates are within Philippine bounds
+        const lat = parseFloat(station.lat);
+        const lon = parseFloat(station.lon);
+        if (isNaN(lat) || isNaN(lon)) return false;
+        if (lat < 4 || lat > 22 || lon < 115 || lon > 128) return false;
+        return true;
+      })
+      .map((station: any) => {
       const currentVal = parseFloat((station.wl || "0").replace(/[^\d.-]/g, ""));
       const alertVal = station.alertwl ? parseFloat(station.alertwl) : null;
       const alarmVal = station.alarmwl ? parseFloat(station.alarmwl) : null;
       const criticalVal = station.criticalwl ? parseFloat(station.criticalwl) : null;
 
+      // Validate water level is within reasonable range (0-100m)
+      const validWL = !isNaN(currentVal) && currentVal >= 0 && currentVal <= 100;
+
       let status: "normal" | "alert" | "alarm" | "critical" = "normal";
-      if (criticalVal && currentVal >= criticalVal) status = "critical";
-      else if (alarmVal && currentVal >= alarmVal) status = "alarm";
-      else if (alertVal && currentVal >= alertVal) status = "alert";
+      if (validWL) {
+        if (criticalVal && currentVal >= criticalVal) status = "critical";
+        else if (alarmVal && currentVal >= alarmVal) status = "alarm";
+        else if (alertVal && currentVal >= alertVal) status = "alert";
+      }
+
+      // Sanitize string fields — strip any HTML/script content
+      const sanitize = (s: string) => String(s).replace(/<[^>]*>/g, "").slice(0, 200);
 
       return {
-        id: station.obscd || "",
-        name: station.obsnm || "Unknown",
-        lat: station.lat || 0,
-        lon: station.lon || 0,
+        id: sanitize(station.obscd || ""),
+        name: sanitize(station.obsnm || "Unknown"),
+        lat: parseFloat(station.lat) || 0,
+        lon: parseFloat(station.lon) || 0,
         timestamp: station.timestr || "",
         currentWL: station.wl || "--",
         wl10m: station.wl10m || "--",
@@ -539,7 +561,7 @@ export async function fetchWaterLevels(): Promise<WaterLevelStation[]> {
       };
     });
   } catch (err) {
-    console.warn("Failed to fetch water levels:", err);
+    logger.warn("Failed to fetch water levels:", err);
     return [];
   }
 }
@@ -604,7 +626,7 @@ export async function fetchAirQuality(): Promise<AirQualityData[]> {
       uvIndex: d.current?.uv_index ?? 0,
     }));
   } catch (err) {
-    console.warn("Failed to fetch air quality:", err);
+    logger.warn("Failed to fetch air quality:", err);
     return [];
   }
 }

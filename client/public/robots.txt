@@ -1,0 +1,7 @@
+# Bantay Pilipinas — Philippines Mission Control
+# https://bantay-pilipinas.vercel.app
+
+User-agent: *
+Allow: /
+
+# Sitemap (none — single-page application)
